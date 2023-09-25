@@ -19,6 +19,7 @@ server.use(express.json());
 // Get routes
 server.use(router)
 
+// SYNC DECIMATES DATABASE, USE ONLY IF U NEED TO
 //db.sequelize.sync();
 
 console.log("Server listening on port: " + process.env.PORT);
