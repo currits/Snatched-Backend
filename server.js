@@ -10,7 +10,7 @@ const server = express();
 // Basic security
 server.use(helmet());
 
-// Allows json to include non-strings
+// Allows urlencoded bodies to be parsed with non-strings
 server.use(express.urlencoded({ extended: true }));
 
 // Parsing json as req.body
