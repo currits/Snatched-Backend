@@ -7,20 +7,21 @@ const db = require('../models');
 const login = (req, res, next) => {
     db.user.findOne({
         where: {
+            // Find email matching user input
             email: req.body.email
         }
     })
         .then(dbUser => {
-            if (!dbUser) {
+            if (!dbUser) { // If email is not found
                 return res.status(404).json({ message: "user not found" });
             } else {
                 bcrypt.compare(req.body.password, dbUser.pwd, (err, same) => {
-                    if (same) {
+                    if (same) { // Password match
                         const token = jwt.sign({ user_ID: dbUser.user_ID }, process.env.SECRET, { expiresIn: '1h' });
                         res.status(200).json({ message: "logged in", "token": token });
-                    } else if (err) {
+                    } else if (err) { // Error
                         res.status(502).json({ message: "errored while checking password" });
-                    } else {
+                    } else { // Password mismatch
                         res.status(401).json({ message: "invalid credentials" });
                     };
                 });
