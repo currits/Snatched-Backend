@@ -16,6 +16,6 @@ server.use(express.json());
 
 server.use(router)
 
-db.sequelize.sync();
-
-//server.listen(3000);
+//db.sequelize.sync();
+console.log("Server listening on port: " + process.env.PORT);
+server.listen(process.env.PORT);
