@@ -13,7 +13,7 @@ async function createListing(req, res) {
     }
 
     // Check that all listing components are sent
-    if (!req.body.title || !req.body.description || !req.body.stock_num || !req.body.pickup_instructions) {
+    if (!req.body.title || !req.body.description || !req.body.pickup_instructions) {
         return res.status(400).send("missing listing component");
     }
 
