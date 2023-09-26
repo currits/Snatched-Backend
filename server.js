@@ -19,6 +19,7 @@ server.use(express.json());
 // Get routes
 server.use(router)
 
+// Make DB associations
 db.user.hasMany(db.listing);
 db.listing.belongsTo(db.user);
 
@@ -29,7 +30,8 @@ db.listing.belongsToMany(db.tag, { through: 'ListingTags' });
 db.tag.belongsToMany(db.listing, { through: 'ListingTags' });
 
 // SYNC DECIMATES DATABASE, USE ONLY IF U NEED TO
-db.sequelize.sync();
+// FORCE: TRUE DROPS ALL TABLES
+//db.sequelize.sync({ force: true });
 
 console.log("Server listening on port: " + process.env.PORT);
-//server.listen(process.env.PORT);
+server.listen(process.env.PORT);

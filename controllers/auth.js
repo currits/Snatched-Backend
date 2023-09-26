@@ -5,13 +5,13 @@ const jwt = require('jsonwebtoken');
 const db = require('../models');
 
 // User Login
-const login = (req, res, next) => {
+const login = (req, res) => {
     if (!req.body.password) {
-        return res.status(400).json({ message: "password not provided" });
+        return res.status(400).send("password not provided");
     }
 
     if (!req.body.email) {
-        return res.status(400).json({ message: "email not provided" });
+        return res.status(400).send("email not provided");
     }
 
     db.user.findOne({
@@ -22,17 +22,17 @@ const login = (req, res, next) => {
     })
         .then(dbUser => {
             if (!dbUser) { // If email is not found
-                return res.status(404).json({ message: "user not found" });
+                return res.status(404).send("user not found");
             } else {
                 bcrypt.compare(req.body.password, dbUser.pwd, (err, same) => {
                     if (same) { // Password match
                         const token = jwt.sign({ user_ID: dbUser.user_ID }, process.env.SECRET, { expiresIn: '1h' });
-                        res.status(200).json({ message: "logged in", "token": token });
+                        res.status(200).json({ "token": token });
                     } else if (err) { // Error
                         console.log(err);
-                        res.status(502).json({ message: "errored while checking password" });
+                        res.status(502).send("errored while checking password");
                     } else { // Password mismatch
-                        res.status(401).json({ message: "invalid credentials" });
+                        res.status(401).send("invalid credentials");
                     };
                 });
             };
@@ -43,13 +43,13 @@ const login = (req, res, next) => {
 };
 
 // User signup
-const signup = (req, res, next) => {
+const signup = (req, res) => {
     if (!req.body.password) {
-        return res.status(400).json({ message: "password not provided" });
+        return res.status(400).send("password not provided");
     }
 
     if (!req.body.email) {
-        return res.status(400).json({ message: "email not provided" });
+        return res.status(400).send("email not provided");
     }
 
     db.user.findOne({
@@ -60,14 +60,14 @@ const signup = (req, res, next) => {
     })
         .then(dbUser => {
             if (dbUser) {
-                return res.status(409).json({ message: "user already exists" });
+                return res.status(409).send("user already exists");
             }
 
             if (req.body.password && req.body.email) {
                 // Hash the password
                 bcrypt.hash(req.body.password, 10, (err, pwdHash) => {
                     if (err) {
-                        return res.status(500).json({ message: "password hash error" });
+                        return res.status(500).send("password hash error");
                     }
 
                     // Create the user
@@ -76,11 +76,11 @@ const signup = (req, res, next) => {
                         pwd: pwdHash
                     }))
                         .then(() => {
-                            res.status(200).json({ message: "user signedup" });
+                            res.status(201).send("user signedup");
                         })
                         .catch(err => {
                             console.log(err);
-                            res.status(502).json({ message: "error while signing up user" });
+                            res.status(502).send("error while signing up user");
                         });
                 });
             }
