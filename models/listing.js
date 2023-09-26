@@ -1,5 +1,5 @@
 const Sequelize = require('sequelize');
-module.exports = function(sequelize, DataTypes) {
+module.exports = function (sequelize, DataTypes) {
   return sequelize.define('listing', {
     listing_ID: {
       autoIncrement: true,
@@ -14,11 +14,15 @@ module.exports = function(sequelize, DataTypes) {
     pickup_instructions: {
       type: DataTypes.STRING(200),
       allowNull: true
+    },
+    title: {
+      type: DataTypes.STRING(30),
+      allowNull: true
     }
   }, {
     sequelize,
     tableName: 'listing',
-    timestamps: false,
+    timestamps: true,
     indexes: [
       {
         name: "PRIMARY",

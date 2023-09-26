@@ -19,8 +19,17 @@ server.use(express.json());
 // Get routes
 server.use(router)
 
+db.user.hasMany(db.listing);
+db.listing.belongsTo(db.user);
+
+db.address.hasMany(db.listing);
+db.listing.belongsTo(db.address);
+
+db.listing.belongsToMany(db.tag, { through: 'ListingTags' });
+db.tag.belongsToMany(db.listing, { through: 'ListingTags' });
+
 // SYNC DECIMATES DATABASE, USE ONLY IF U NEED TO
-//db.sequelize.sync();
+db.sequelize.sync();
 
 console.log("Server listening on port: " + process.env.PORT);
-server.listen(process.env.PORT);
+//server.listen(process.env.PORT);
