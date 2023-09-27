@@ -3,20 +3,22 @@ const {Op} = require('sequelize');
 const db = require('../models')
 const listingDB = db.listing;
 const addressDB = db.address;
-const atDB = db.at;
 
 // Controller to handle retrieving multiple listings from the database
+// needs to be expanded to also return location
 exports.getMany = async (req, res) => {
     try {
       //this needs to be expanded to changed to send
       //  -latlon data for app to place markers
       //  -only listing IDs and title, leave individual (ie marker taps) to findByPk method
-      var latlon = {lat: req.query.lat, lon: req.query.lon};
+      var latlon = {lat: parseFloat(req.query.lat), lon: parseFloat(req.query.lon)};
       //code for calculating circle distances would go here, centre point coords stored in req.body.lat and req.body.lon
       //ideally results in assoc array with fields pos1, pos2 to dentote two lat/lon points (bottom left and top right) that form a square for us to check within
+      var pos1 = {lat: latlon.lat - 0.1, lon: latlon.lon - 0.1};
+      var pos2 = {lat: latlon.lat + 0.1, lon: latlon.lon + 0.1};
     
       //this retrieves an array of DAO's with the listings id fields
-      var idResults = await atDB.findAll({ where: {
+      var idResults = await addressDB.address.findAll({ where: {
         [Op.and] : [
           {lat: {
             [Op.between]: [pos1.lat, pos2.lat]
@@ -25,27 +27,28 @@ exports.getMany = async (req, res) => {
             [Op.between]: [pos1.lon, pos2.lon]
           }}
         ]
-      }, attributes: ['listing_ID'] });
+      }, attributes: ['place_ID'] });
 
       //we then parse to a map-able array
-      idResults.toJSON();
-      idResults = JSON.parse(idResults);
+      idResults = idResults.map(x => x.toJSON());
       //extract just an array of IDs
-      var idArray = idResults.map(x => x.listing_ID)
+      console.log(idArray);
+      var idArray = idResults.map(x => x.place_ID)
       //then find all listings with those IDs
       var listings = await listingDB.findAll({
         where: {
-          listing_ID : {
+          addressPlaceID : {
             [Op.in]: [idArray]
           }
         }
       });
       //then parse the data to JSON
-      listings.toJSON();
+      listings = listings.map(x => x.toJSON());
       //and send it
       res.status(200).send(listings);    
     } catch (error) {
       //if we encounter a problem, return problem code
+      console.log(error);
       res.status(500).send("Error retrieving listing data from server.");
     }
   };
@@ -84,20 +87,25 @@ exports.getMany = async (req, res) => {
         res.status(500).send("Must be searching by at least one tag or keyword.")
       //if no keywords (ie only tags)
       else if(keywords == null){
-        //going to assume we have seperated tags by comma
-        tagsList = tags.split(',');
+        //going to assume we have seperated tags by '+''
+        var tagsList = tags.split('+');
         //db query here
       }
       //only keywords
       else if (tags == null){
-        //going to assume we have seperated keywords by comma
-        keywordList = keywords.split(',');
+        //going to assume we have seperated keywords by '+'
+        var keywordList = keywords.split('+');
         //db query here
+        results = listingDB.findAll({where:
+        {
+          
+        }});
+        //select * from listing where
       }
       //else, both
       else {
-        keywordList = keywords.split(',');
-        tagsList = tags.split(',');
+        keywordList = keywords.split('+');
+        tagsList = tags.split('+');
         //db query here
       }
     } catch (error) {
