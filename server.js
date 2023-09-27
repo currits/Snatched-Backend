@@ -34,5 +34,5 @@ db.tag.belongsToMany(db.listing, { through: 'ListingTags' });
 // ALTER: TRUE WILL MESS WITH CHANGED TABLES
 //db.sequelize.sync({ alter: true });
 
-console.log("Server listening on port: " + process.env.PORT);
-server.listen(process.env.PORT);
+console.log("Server listening on port: " + 5000);
+server.listen(5000);

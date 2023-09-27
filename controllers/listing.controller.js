@@ -5,7 +5,7 @@ const listingDB = db.listing;
 const addressDB = db.address;
 
 // Controller to handle retrieving multiple listings from the database
-// needs to be expanded to also return location
+// Returns JSON array of listings with; listing_ID,title, desc, stock num, pickup_instructions, and the lat and lon for each (for displaying on map)
 exports.getMany = async (req, res) => {
     try {
       //this needs to be expanded to changed to send
@@ -14,11 +14,12 @@ exports.getMany = async (req, res) => {
       var latlon = {lat: parseFloat(req.query.lat), lon: parseFloat(req.query.lon)};
       //code for calculating circle distances would go here, centre point coords stored in req.body.lat and req.body.lon
       //ideally results in assoc array with fields pos1, pos2 to dentote two lat/lon points (bottom left and top right) that form a square for us to check within
+      //for now, just search within an inflated square, with sides approx 22km long
       var pos1 = {lat: latlon.lat - 0.1, lon: latlon.lon - 0.1};
       var pos2 = {lat: latlon.lat + 0.1, lon: latlon.lon + 0.1};
     
-      //this retrieves an array of DAO's with the listings id fields
-      var idResults = await addressDB.address.findAll({ where: {
+      //this retrieves an array of address instances
+      var addressResults = await addressDB.findAll({ where: {
         [Op.and] : [
           {lat: {
             [Op.between]: [pos1.lat, pos2.lat]
@@ -27,25 +28,38 @@ exports.getMany = async (req, res) => {
             [Op.between]: [pos1.lon, pos2.lon]
           }}
         ]
-      }, attributes: ['place_ID'] });
+      }});
 
-      //we then parse to a map-able array
-      idResults = idResults.map(x => x.toJSON());
-      //extract just an array of IDs
-      console.log(idArray);
-      var idArray = idResults.map(x => x.place_ID)
-      //then find all listings with those IDs
-      var listings = await listingDB.findAll({
-        where: {
-          addressPlaceID : {
-            [Op.in]: [idArray]
+      //first see if we actually retrieved stored addresses
+      if (addressResults == null)
+        //return error message if we did not
+        res.status(500).send("No listings found near those coordinates.");
+      else {
+        //if we did, attempt to retrieve every listing associated with each address
+        console.log(addressResults.length);
+        //promise all so we wait until all results are retrieved before sending data
+        var listingResults = await Promise.all(await addressResults.map(async x => {
+          //check if listings exist
+          var listingCount = await x.countListings();
+          if (listingCount > 0){
+            //get them
+            var listingsAtAddress = await x.getListings();
+            //and for each of the found listings, create a json with the listings coords and tags attached
+            return(listingsAtAddress.map(y => {
+              console.log("inside 3");
+              var processedListing = y.toJSON();
+              processedListing["lat"] = x.lat;
+              processedListing["lon"] = x.lon;
+              //store the final assembled json object
+              return(processedListing);
+            }));
           }
-        }
-      });
-      //then parse the data to JSON
-      listings = listings.map(x => x.toJSON());
-      //and send it
-      res.status(200).send(listings);    
+        }));
+        if (listingResults.length == 0)
+          res.status(500).send("No listings found near those coordinates.");
+        else
+          res.status(200).send(listingResults); console.log("end reached");
+      }
     } catch (error) {
       //if we encounter a problem, return problem code
       console.log(error);
@@ -54,19 +68,44 @@ exports.getMany = async (req, res) => {
   };
 
   // Controller to retrieve a single listing
+  // Returns a single JSON object containing a listings: title, desc, stock_num, pickup instructions, lat, lon,
+  // full address (single string) and tags (as a single string, comma deliminated), and the user ID of the 
+  // user (producer) that created the listing (currrently just sends userID, could also include user contact deets but would prefer
+  // to not eager load user deets re privacy)
   exports.getOne = async (req, res) => {
     try {
-      //needs to be expanded to
-      //  -collect relational rows in other tables (at, address, tag, creates, user)
-      //  -extract useful data (user contact info, latlon, address, tags)
-      //  -format into a single object
-      //  -return that object to the app
-      //presently just returns the single row from the table
       var listingID = req.query.id;
       var listing = await listingDB.findByPk(listingID);
       if (listing != null){
-        listing.toJSON();
-        res.status(200).send(listing);
+        var tags = await listing.getTags();
+        var address = await listing.getAddress();
+        var listingCreator = await listing.getUser();
+        var responseObject = listing.toJSON();
+
+        if (tags != null){
+          var tagString = "";
+          tags.forEach(z => tagString += "," + z.type);
+          tagString = tagString.slice(1);
+          responseObject["tags"] = tagString;
+        }
+
+        var addressString = "";
+        if (address.unit_no != null)
+          addressString += " " + address.unit_no;
+        if (address.street_no != null)
+          addressString += " " + address.street_no;
+        if (address.street_name != null)
+          addressString += " " + address.street_name;
+        if (address.town_city != null)
+          addressString += " " + address.town_city;
+        addressString = addressString.slice(1);
+        responseObject["address"] = addressString;
+        responseObject["lat"] = address.lat;
+        responseObject["lon"] = address.lon;
+
+        responseObject["producerID"] = listingCreator.user_ID;
+
+        res.status(200).send(responseObject);
       }
       else{
         res.status(500).send("No listings found.");
@@ -76,6 +115,7 @@ exports.getMany = async (req, res) => {
     }
   };
 
+  //this doesnt work at all lmao
   exports.getSearchResults = async (req, res) => {
     try {
       //first we'll need to extract keywords
@@ -98,7 +138,7 @@ exports.getMany = async (req, res) => {
         //db query here
         results = listingDB.findAll({where:
         {
-          
+
         }});
         //select * from listing where
       }
