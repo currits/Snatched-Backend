@@ -76,11 +76,11 @@ const signup = (req, res) => {
                         pwd: pwdHash
                     }))
                         .then(() => {
-                            res.status(201).send("user signedup");
+                            res.status(201).send("user signed up");
                         })
                         .catch(err => {
                             console.log(err);
-                            res.status(502).send("error while signing up user");
+                            res.status(502).send("error creating user");
                         });
                 });
             }

@@ -31,7 +31,8 @@ db.tag.belongsToMany(db.listing, { through: 'ListingTags' });
 
 // SYNC DECIMATES DATABASE, USE ONLY IF U NEED TO
 // FORCE: TRUE DROPS ALL TABLES
-//db.sequelize.sync({ force: true });
+// ALTER: TRUE WILL MESS WITH CHANGED TABLES
+//db.sequelize.sync({ alter: true });
 
 console.log("Server listening on port: " + process.env.PORT);
 server.listen(process.env.PORT);
