@@ -15,6 +15,7 @@ router.get("/listing/one", listings.getOne);
 /// Auth required routes
 router.post("/listing/create", verifyToken, createListing);
 router.put("/user", verifyToken, editUser);
-router.post("/user", verifyToken, getUser);
+router.get("/user/:id", verifyToken, getUser);
+router.get("/user", verifyToken, getUser);
 
 module.exports = router;

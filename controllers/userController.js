@@ -2,9 +2,10 @@ require('dotenv').config();
 const db = require('../models');
 
 async function getUser(req, res) {
-    const id = req.body.user_ID ? req.body.user_ID : req.user.user_ID;
+    const id = req.params.id ? req.params.id : req.user.user_ID;
     let dbUser;
 
+    console.log(req.params.id);
     try {
         dbUser = await db.user.findByPk(id);
     }
