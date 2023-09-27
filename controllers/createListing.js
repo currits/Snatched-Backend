@@ -69,6 +69,28 @@ async function createListing(req, res) {
         description: req.body.description
     }));
 
+    // Add tags if provided
+    if (!req.body.tags) {
+        const tags = req.body.tags;
+
+        tags.forEach(async _tag => {
+            let dbTag = await db.tag.findOne({
+                where: {
+                    tag: _tag
+                }
+            })
+
+            if (!dbTag) {
+                dbTag = await db.tag.create(({
+                    tag: _tag
+                }));
+            }
+
+            await dbListing.addTag(dbTag);
+            await dbTag.addListing(dbListing);
+        });
+    }
+
     // Associate listing with user and address
     await dbListing.setUser(dbUser);
     await dbListing.setAddress(dbAddress);
