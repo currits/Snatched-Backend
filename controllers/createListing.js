@@ -21,9 +21,10 @@ async function createListing(req, res) {
     const address = req.body.address;
     const URL = 'https://maps.googleapis.com/maps/api/geocode/json?address=' + encodeURIComponent(address) + '&key=' + process.env.GOOGLE_KEY;
 
+    let data;
     // Get geocode data
     try {
-        const data = await fetch(URL);
+        data = await fetch(URL);
     }
     catch (err) {
         console.error(err);
