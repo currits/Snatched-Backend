@@ -13,7 +13,7 @@ async function createListing(req, res) {
     }
 
     // Check that all listing components are sent
-    if (!req.body.title || !req.body.description || !req.body.stock_num || !req.body.pickup_instructions) {
+    if (!req.body.title || !req.body.description || !req.body.pickup_instructions) {
         return res.status(400).send("missing listing component");
     }
 
@@ -68,6 +68,28 @@ async function createListing(req, res) {
         pickup_instructions: req.body.pickup_instructions,
         description: req.body.description
     }));
+
+    // Add tags if provided
+    if (req.body.tags) {
+        const tags = req.body.tags;
+
+        tags.forEach(async _tag => {
+            let dbTag = await db.tag.findOne({
+                where: {
+                    tag: _tag
+                }
+            })
+
+            if (!dbTag) {
+                dbTag = await db.tag.create(({
+                    tag: _tag
+                }));
+            }
+
+            await dbListing.addTag(dbTag);
+            await dbTag.addListing(dbListing);
+        });
+    }
 
     // Associate listing with user and address
     await dbListing.setUser(dbUser);
