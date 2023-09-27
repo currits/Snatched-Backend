@@ -70,7 +70,7 @@ async function createListing(req, res) {
     }));
 
     // Add tags if provided
-    if (!req.body.tags) {
+    if (req.body.tags) {
         const tags = req.body.tags;
 
         tags.forEach(async _tag => {
