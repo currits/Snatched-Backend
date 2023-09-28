@@ -7,6 +7,10 @@ const db = require('./models');
 
 const server = express();
 
+// Enable Cloudflare HTTPS
+// From: https://saturncloud.io/blog/how-to-use-express-cloudflare-with-ssl-for-secure-web-applications/#step-4-update-express-app
+server.enable('trust proxy');
+
 // Basic security
 server.use(helmet());
 
@@ -34,5 +38,5 @@ db.tag.belongsToMany(db.listing, { through: 'ListingTags' });
 // ALTER: TRUE WILL MESS WITH CHANGED TABLES
 //db.sequelize.sync({ alter: true });
 
-console.log("Server listening on port: " + 5000);
-server.listen(5000);
+console.log("Server listening on port: " + process.env.PORT);
+server.listen(process.env.PORT);
