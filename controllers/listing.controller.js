@@ -123,7 +123,6 @@ exports.getMany = async (req, res) => {
       //first we'll need to extract keywords
       var keywords = req.query.keywords;
       var tags = req.query.tags;
-      
       //if no search terms
       if ((keywords == null) && (tags == null))
         res.status(500).send("Must be searching by at least one tag or keyword.")
@@ -134,23 +133,33 @@ exports.getMany = async (req, res) => {
         var searchResults = [];
         //if there are keywords, collect them
         if(keywords != null){
-          //going to assume we have seperated keywords by '+'
-          keywordList = keywords.split('+');
+          //going to assume we have seperated keywords by ','
+          console.log(keywords);
+          keywordList = keywords.split(',');
+          console.log(keywordList);
           //setting up for pattern matching
-          keywordList = keywordList.map(item => '%' + item + '%');
+          keywordList = keywordList.map(item => {
+            return ({ [Op.or] :[{description: {[Op.like] : '%' + item + '%'}}, {title : {[Op.like] : '%' + item + '%'}}]});
+        });
           //collect all listings that contain the keywords anywhere in their title or description
-          var keywordResults = await listingDB.findAll({where: {[Op.or] :[{title: {[Op.like]: keywordList}}, {description: {[Op.like]: keywordList}}]}});
-          
+          var keywordResults = await listingDB.findAll({
+            where: {
+              [Op.or] : keywordList}
+              });
           searchResults = searchResults.concat(keywordResults);
         }
         //if there are tags, collect them
         if (tags != null){
-          //going to assume we have seperated tags by '+''
-          tagsList = tags.split('+');
+          //going to assume we have seperated tags by ','
+          console.log(tags);
+          tagsList = tags.split(',');
+          console.log(tagsList);
           //setting up for pattern matching
-          tagsList = tagsList.map(item => '%' + item + '%');
+          tagsList = tagsList.map(item => {
+            return ({tag: {[Op.like] : '%' + item + '%'}});
+          });
           //collect all tags matching
-          var tagResults = await tagDB.findAll({where: {type: {[Op.like]: tagsList}}});
+          var tagResults = await tagDB.findAll({where: {[Op.or]: tagsList}});
           //get all listings associated with those tags
           var listingsWithTags = await Promise.all(await tagResults.map(async x => {
             var result = await x.getListings();
@@ -183,8 +192,23 @@ exports.getMany = async (req, res) => {
     }
   }
 
-  //    Below is reference code from uni    //
+  exports.deleteListing = async (req, res) => {
+    try {
+      var listingID = req.params.id;
+      var listing = await listingDB.findByPk(listingID);
+      if (listing != null){
+        await listing.destroy();
+        res.status(200).send(listing);
+      }
+      else
+        res.status(404).send("The requested listing was not found. It may have already been deleted.");
+    } catch (error) {
+      console.log(error);
+      res.status(500).send("Server error performing delete request.");
+    }
+  }
 
+    //    Below is reference code from uni    //
   /*
 // Controller to modify the data of a listing within the database
 exports.update = (req, res) => {

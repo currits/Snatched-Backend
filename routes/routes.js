@@ -11,7 +11,8 @@ router.post("/login", login);
 router.post("/signup", signup);
 router.get("/listing/", listings.getMany);
 router.get("/listing/:id", listings.getOne);
-router.get("/listing/search", listings.getSearchResults);
+router.get("/search", listings.getSearchResults);
+router.delete("/listing/:id", listings.deleteListing);
 
 /// Auth required routes
 router.post("/listing/create", verifyToken, createListing);
