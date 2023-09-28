@@ -7,6 +7,9 @@ const db = require('./models');
 
 const server = express();
 
+// Enable Cloudflare HTTPS
+server.enable('trust proxy');
+
 // Basic security
 server.use(helmet());
 
