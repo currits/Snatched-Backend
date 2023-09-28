@@ -8,6 +8,7 @@ const db = require('./models');
 const server = express();
 
 // Enable Cloudflare HTTPS
+// From: https://saturncloud.io/blog/how-to-use-express-cloudflare-with-ssl-for-secure-web-applications/#step-4-update-express-app
 server.enable('trust proxy');
 
 // Basic security
