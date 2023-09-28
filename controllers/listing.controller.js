@@ -198,7 +198,10 @@ exports.getMany = async (req, res) => {
         if (listingResults.length == 0)
           res.status(404).send("No listings found near those coordinates.");
         else
+        {
+          listingResults = listingResults.flat()
           res.status(200).send(listingResults); console.log("end reached");
+        }
       }
     } catch (error) {
       //if we encounter a problem, return problem code
