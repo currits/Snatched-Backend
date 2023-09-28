@@ -1,3 +1,4 @@
+require('dotenv').config();
 const Sequelize = require('sequelize');
 const {Op} = require('sequelize');
 const db = require('../models');
@@ -5,6 +6,140 @@ const e = require('express');
 const listingDB = db.listing;
 const addressDB = db.address;
 const tagDB = db.tag;
+const fetch = require('node-fetch');
+const { getAddressObject } = require('../utils/addressParser.js');
+
+/*
+    Creates a listing given a correctly formatted address and listing information
+*/
+exports.createListing = async (req, res) => {
+  // Check for address in body
+  if (!req.body.address) {
+      return res.status(400).send("missing address");
+  }
+
+  // Check that all listing components are sent
+  if (!req.body.title || !req.body.description || !req.body.pickup_instructions) {
+      return res.status(400).send("missing listing component");
+  }
+
+  // URI formatting for fetching geocode response
+  const address = req.body.address;
+  const URL = 'https://maps.googleapis.com/maps/api/geocode/json?address=' + encodeURIComponent(address) + '&key=' + process.env.GOOGLE_KEY;
+
+  let data;
+  // Get geocode data
+  try {
+      data = await fetch(URL);
+  }
+  catch (err) {
+      console.error(err);
+      return res.status(502).send("bad google gateway")
+  }
+
+  const jsonAddress = await data.json();
+
+  // If address not found, return bad response
+  if (jsonAddress.status === "ZERO_RESULTS") {
+      return res.status(400).send("address not found");
+  }
+
+  // Find if the address already exists in db
+  let dbAddress = await db.address.findOne({
+      where: {
+          place_ID: jsonAddress.results[0].place_id
+      }
+  });
+
+  // Get user instance from decoded jwt
+  let dbUser = await db.user.findOne({
+      where: {
+          user_ID: req.user.user_ID
+      }
+  });
+
+  try {
+      // If the address doesnt exist, create it
+      if (!dbAddress) {
+          // Parse google response into pretty object
+          const addressComponents = getAddressObject(jsonAddress.results[0].address_components);
+          dbAddress = await db.address.create(({
+              place_ID: jsonAddress.results[0].place_id,
+              street_no: addressComponents.street_no,
+              street_name: addressComponents.street,
+              town_city: addressComponents.city,
+              country: addressComponents.country,
+              postcode: addressComponents.postcode,
+              lat: jsonAddress.results[0].geometry.location.lat,
+              lon: jsonAddress.results[0].geometry.location.lng
+          }));
+      }
+  }
+  catch (err) {
+      console.error(err);
+      return res.status(500).send("could not create address");
+  }
+  
+  var dbListing;
+  try {
+      // Create the listing
+      dbListing = await db.listing.create(({
+          title: req.body.title,
+          stock_num: req.body.stock_num,
+          pickup_instructions: req.body.pickup_instructions,
+          description: req.body.description
+      }));
+
+  }
+  catch (err) {
+      console.error(err);
+      return res.status(500).send("could not create listing");
+  }
+
+  try {
+      // Add tags if provided
+      if (req.body.tags) {
+          const tags = req.body.tags;
+          tags.forEach(async _tag => {
+              let dbTag = await db.tag.findOne({
+                  where: {
+                      tag: _tag
+                  }
+              })
+
+              if (!dbTag) {
+                  dbTag = await db.tag.create(({
+                      tag: _tag
+                  }));
+              }
+
+              await dbListing.addTag(dbTag);
+              await dbTag.addListing(dbListing);
+          });
+      }
+
+  }
+  catch (err) {
+      console.error(err);
+      return res.status(500).send("could not create tags");
+  }
+
+  try {
+      // Associate listing with user and address
+      await dbListing.setUser(dbUser);
+      await dbListing.setAddress(dbAddress);
+
+      // Associate user and address with listing
+      await dbUser.addListing(dbListing);
+      await dbAddress.addListing(dbListing);
+  }
+  catch (err) {
+      console.error(err);
+      res.status(500).send("could not associate models")
+  }
+  // Return created listings ID
+  res.status(201).json({ listing_ID: dbListing.listing_ID });
+}
 
 // Controller to handle retrieving multiple listings from the database
 // Needs GET query (as ?key=value) params:
@@ -303,73 +438,3 @@ exports.getMany = async (req, res) => {
       res.status(500).send("Server error when trying to update listing.");
     }
   }
-
-    //    Below is reference code from uni    //
-  /*
-// Controller to modify the data of a listing within the database
-exports.update = (req, res) => {
-  if (!req.body || !req.body.id) {
-    res.status(400).send({
-      message: "Content can not be empty!"
-    });
-  }
-
-  var newData = {};
-  if (req.body.title){
-    newData.title = req.body.title;
-  }
-  if (req.body.desc){
-    newData.desc = req.body.desc;
-  }
-  if (req.body.lat){
-    newData.lat = req.body.lat;
-  }
-  if (req.body.lng){
-    newData.lng = req.body.lng;
-  }
-  if (newData.length == 0){
-    res.status(400).send({
-      message: "New listing data must be provided"
-    });
-  }
-  
-  Project.update(req.body.id, newData, (err, data) =>{
-        if (err)
-      res.status(404).send({
-        message:
-          err.message || "Resource not found"
-      });
-      else res.status(200).send(data);
-  });
-};
-
-// Controller to delete a project from within the database
-exports.delete = (req, res) => {
-  if (!req.body) {
-    res.status(400).send({
-      message: "Content can not be empty!"
-    });
-  }
-  Project.delete(req.body.id, (err, data) => {
-    if (err)
-      res.status(404).send({
-        message:
-          err.message || "Resource not found"
-      });
-    else res.status(204).send({message:"Deletion Successful"});
-  });
-};
-
-// Controller to delete all project data from the database
-exports.deleteAll = (req, res) => {
-  Project.deleteAll((err, data) => {
-    if (err)
-      res.status(404).send({
-        message:
-          err.message || "Resource not found."
-      });
-    else res.status(204).send({message:"Deletion Successful"});
-  });
-};
-
-*/
