@@ -40,7 +40,7 @@
 "pickup_instructions":"Big tree on property",
 "stock_num":"99",
 "description":"Come get em",
-"tags":["Vegetable","Tree'],
+"tags":["Vegetable","Tree"],
 "user_id":"1"
 }
 {
