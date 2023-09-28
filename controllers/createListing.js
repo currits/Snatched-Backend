@@ -73,10 +73,11 @@ async function createListing(req, res) {
         console.error(err);
         return res.status(500).send("could not create address");
     }
-
+    
+    var dbListing;
     try {
         // Create the listing
-        let dbListing = await db.listing.create(({
+        dbListing = await db.listing.create(({
             title: req.body.title,
             stock_num: req.body.stock_num,
             pickup_instructions: req.body.pickup_instructions,
@@ -93,7 +94,6 @@ async function createListing(req, res) {
         // Add tags if provided
         if (req.body.tags) {
             const tags = req.body.tags;
-
             tags.forEach(async _tag => {
                 let dbTag = await db.tag.findOne({
                     where: {

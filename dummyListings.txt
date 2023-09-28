@@ -1,0 +1,63 @@
+{
+"address":"95A Silverdale Road Silverdale Hamilton 3216",
+"title":"Cabbage(Test)",
+"pickup_instructions":"Down the drive, theres a labelled box",
+"stock_num":"3",
+"description":"MY CABBAGES",
+"tags":["Vegetable","Fresh"],
+"user_id":"1"
+}
+{
+"address":"Gate One Knighton Road Hillcrest Hamilton 3216",
+"title":"Oranges(Test)",
+"pickup_instructions":"Big tree, grab em",
+"stock_num":"1",
+"description":"Naranjas",
+"tags":["Fruit","Tree"],
+"user_id":"1"
+}
+{
+"address":"418 Grey Street Hamilton East, Hamilton 3216",
+"title":"Carrots(Test)",
+"pickup_instructions":"Whats up doc",
+"stock_num":"8",
+"description":"Will help you see better (srs)",
+"tags":["Vegetable"],
+"user_id":"1"
+}
+{
+"address":"500 Victoria Street Hamilton Central, Hamilton 3204",
+"title":"Lettuces(Test)",
+"pickup_instructions":"Knock on door 12-4pm weekdays",
+"stock_num":"50",
+"description":"LEAF GREEN",
+"tags":["Vegetable"],
+"user_id":"1"
+}
+{
+"address":"119 Commerce Street Frankton, Hamilton 3204",
+"title":"Apples(Test)",
+"pickup_instructions":"Big tree on property",
+"stock_num":"99",
+"description":"Come get em",
+"tags":["Vegetable","Tree"],
+"user_id":"1"
+}
+{
+"address":"28 Duke Street Frankton Hamilton 3204",
+"title":"Kiwifruit(Test)",
+"pickup_instructions":"Steal em from sample pickup no one will notice",
+"stock_num":"1000",
+"description":"Die zespri",
+"tags":["Corpo","Fruit"],
+"user_id":"1"
+}
+{
+"address":"11/19 Karewa Place Te Rapa Hamilton 3200",
+"title":"Compost(Test)",
+"pickup_instructions":"Its fr just the waste transfer station",
+"stock_num":"99",
+"description":"GIVE US YOUR WASTE",
+"tags":["outsidescope"],
+"user_id":"1"
+}
