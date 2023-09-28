@@ -93,7 +93,8 @@ async function createListing(req, res) {
         // Add tags if provided
         if (req.body.tags) {
             const tags = req.body.tags;
-
+            //assumes '+' delimiter
+            tags = tags.split('+');
             tags.forEach(async _tag => {
                 let dbTag = await db.tag.findOne({
                     where: {

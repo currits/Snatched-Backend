@@ -9,8 +9,9 @@ const listings = require("../controllers/listing.controller.js");
 /// User Auth
 router.post("/login", login);
 router.post("/signup", signup);
-router.get("/listing/many", listings.getMany);
-router.get("/listing/one", listings.getOne);
+router.get("/listing/", listings.getMany);
+router.get("/listing/:id", listings.getOne);
+router.get("/listing/search", listings.getSearchResults);
 
 /// Auth required routes
 router.post("/listing/create", verifyToken, createListing);

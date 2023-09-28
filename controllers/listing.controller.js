@@ -1,8 +1,10 @@
 const Sequelize = require('sequelize');
 const {Op} = require('sequelize');
-const db = require('../models')
+const db = require('../models');
+const e = require('express');
 const listingDB = db.listing;
 const addressDB = db.address;
+const tagDB = db.tag;
 
 // Controller to handle retrieving multiple listings from the database
 // Returns JSON array of listings with; listing_ID,title, desc, stock num, pickup_instructions, and the lat and lon for each (for displaying on map)
@@ -74,7 +76,7 @@ exports.getMany = async (req, res) => {
   // to not eager load user deets re privacy)
   exports.getOne = async (req, res) => {
     try {
-      var listingID = req.query.id;
+      var listingID = req.params.id;
       var listing = await listingDB.findByPk(listingID);
       if (listing != null){
         var tags = await listing.getTags();
@@ -125,86 +127,65 @@ exports.getMany = async (req, res) => {
       //if no search terms
       if ((keywords == null) && (tags == null))
         res.status(500).send("Must be searching by at least one tag or keyword.")
-      //if no keywords (ie only tags)
-      else if(keywords == null){
-        //going to assume we have seperated tags by '+''
-        var tagsList = tags.split('+');
-        //db query here
+      else{
+        //otherwise
+        var tagsList = [];
+        var keywordList = [];
+        var searchResults = [];
+        //if there are keywords, collect them
+        if(keywords != null){
+          //going to assume we have seperated keywords by '+'
+          keywordList = keywords.split('+');
+          //setting up for pattern matching
+          keywordList = keywordList.map(item => '%' + item + '%');
+          //collect all listings that contain the keywords anywhere in their title or description
+          var keywordResults = await listingDB.findAll({where: {[Op.or] :[{title: {[Op.like]: keywordList}}, {description: {[Op.like]: keywordList}}]}});
+          
+          searchResults = searchResults.concat(keywordResults);
+        }
+        //if there are tags, collect them
+        if (tags != null){
+          //going to assume we have seperated tags by '+''
+          tagsList = tags.split('+');
+          //setting up for pattern matching
+          tagsList = tagsList.map(item => '%' + item + '%');
+          //collect all tags matching
+          var tagResults = await tagDB.findAll({where: {type: {[Op.like]: tagsList}}});
+          //get all listings associated with those tags
+          var listingsWithTags = await Promise.all(await tagResults.map(async x => {
+            var result = await x.getListings();
+            return (result);
+          }));
+          //flatten the array
+          listingsWithTags = listingsWithTags.flat();
+          var uniqueID = [];
+          //filter out duplicates
+          listingsWithTags = listingsWithTags.filter((item) =>{
+            if (uniqueID.includes(item.listing_ID)){
+              return false;
+            }
+            else{
+              uniqueID.push(item.listing_ID);
+              return true;
+            }
+          });
+          searchResults = searchResults.concat(listingsWithTags);
+        }
+        if (searchResults.length == 0)
+          res.status(500).send("No results found.");
+        else
+          res.status(200).send(searchResults);
       }
-      //only keywords
-      else if (tags == null){
-        //going to assume we have seperated keywords by '+'
-        var keywordList = keywords.split('+');
-        //db query here
-        results = listingDB.findAll({where:
-        {
 
-        }});
-        //select * from listing where
-      }
-      //else, both
-      else {
-        keywordList = keywords.split('+');
-        tagsList = tags.split('+');
-        //db query here
-      }
     } catch (error) {
-      
+      console.log(error);
+      res.status(500).send("Error in search function");
     }
   }
 
   //    Below is reference code from uni    //
 
   /*
-  // Controller for creating a new listing in the database
-exports.create = (req, res) => {
-  if (!req.body) {
-    res.status(400).send({
-      message: "Content can not be empty!"
-    });
-  }
-
-  //this object is what we pass to the create() model to make new rows in the database
-  var listing = new Listing({
-    id: req.body.id,
-    title: req.body.title,
-    desc: req.body.desc,
-    lat: req.body.lat,
-    lng: req.body.lng
-  });
-
-  
-  Listing.create(listing, (err, data) => {
-    if (err)
-      res.status(400).send({
-        message:
-          err.message || "Invalid project data"
-      });
-    else res.status(200).send(data);
-  });
-};
-
-
-// Controller for retrieving a single listing from the database using listing id
-exports.getOne = (req, res) => {
-  if (!req.body) {
-    res.status(400).send({
-      message: "Content can not be empty!"
-    });
-  }
-
-  if(req.body.id){
-    Listing.getID(req.body.id, (err, data) => {
-      if (err)
-        res.status(404).send({
-          message:
-            err.message || "Resource not found"
-        });
-      else res.status(200).send(data);
-    });
-  }
-};
-
 // Controller to modify the data of a listing within the database
 exports.update = (req, res) => {
   if (!req.body || !req.body.id) {
