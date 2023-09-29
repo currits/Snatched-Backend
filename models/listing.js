@@ -22,6 +22,11 @@ module.exports = function (sequelize, DataTypes) {
     description: {
       type: DataTypes.STRING(200),
       allowNull: true
+    },
+    should_contact: {
+      type: DataTypes.BOOLEAN,
+      defaultValue: false,
+      allowNull: true
     }
   }, {
     sequelize,

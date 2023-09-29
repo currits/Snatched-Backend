@@ -87,7 +87,8 @@ exports.createListing = async (req, res) => {
           title: req.body.title,
           stock_num: req.body.stock_num,
           pickup_instructions: req.body.pickup_instructions,
-          description: req.body.description
+          description: req.body.description,
+          should_contact: req.body.should_contact
       }));
 
   }
@@ -384,6 +385,10 @@ exports.getMany = async (req, res) => {
         if (req.body.pickup_instructions) {
           console.log("pickup");
           listing.pickup_instructions = req.body.pickup_instructions;
+        }
+        if (req.body.should_contact){
+          console.log("pickup");
+          listing.should_contact = req.body.should_contact;
         }
         if (req.body.tags) {
           const tags = req.body.tags;
