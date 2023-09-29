@@ -6,11 +6,13 @@ const jwt = require("jsonwebtoken");
 */
 const verifyToken = (req, res, next) => {
 
+    let token;
+
     if (!req.headers.authorization)
         return res.status(403).send("Missing token");
 
     try {
-        const token = req.headers.authorization.split(' ')[1];
+        token = req.headers.authorization.split(' ')[1];
     }
     catch (err) {
         console.error(err);
