@@ -299,9 +299,11 @@ exports.getSearchResults = async (req, res) => {
 }
 
 exports.getOwnListings = async (req, res) => {
+  console.log("ownListing inside 0");
   if (req.user.user_ID) {
     const id = req.user.user_ID;
-    var ownListings = db.listing.findAll({
+    console.log("ownListing inside 1", id);
+    var ownListings = await db.listing.findAll({
       where: {
         userUserID: id
       }
@@ -311,7 +313,8 @@ exports.getOwnListings = async (req, res) => {
     if (!ownListings)
       return res.status(404).send("No listings for current user found.");
 
-    var finalResults = ownListings.map(async x => {
+    console.log(ownListings);
+    var finalResults = await Promise.all(await ownListings.map(async x => {
       var result = x.toJSON();
       var tags = await x.getTags();
       if (tags){
@@ -337,8 +340,8 @@ exports.getOwnListings = async (req, res) => {
         result["lon"] = address.lon;
       }
       return result;
-    });
-
+    }));
+    console.log("listing own inside last")
     res.status(200).send(finalResults);
   }
   else
