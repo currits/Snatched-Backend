@@ -267,6 +267,22 @@ exports.getSearchResults = async (req, res) => {
           }
         });
         searchResults = searchResults.concat(listingsWithTags);
+        searchResults.forEach(async item => {
+          var address = await item.getAddress();
+          var addressString = "";
+          if (address.unit_no != null)
+            addressString += " " + address.unit_no;
+          if (address.street_no != null)
+            addressString += " " + address.street_no;
+          if (address.street_name != null)
+            addressString += " " + address.street_name;
+          if (address.town_city != null)
+            addressString += " " + address.town_city;
+          addressString = addressString.slice(1);
+          item["address"] = addressString;
+          item["lat"] = address.lat;
+          item["lon"] = address.lon;
+        })
       }
       if (searchResults.length == 0)
         res.status(500).send("No results found.");
