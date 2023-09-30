@@ -26,7 +26,7 @@ const login = (req, res) => {
             } else {
                 bcrypt.compare(req.body.password, dbUser.pwd, (err, same) => {
                     if (same) { // Password match
-                        const token = jwt.sign({ user_ID: dbUser.user_ID }, process.env.SECRET, { expiresIn: '1h' });
+                        const token = jwt.sign({ user_ID: dbUser.user_ID }, process.env.SECRET, { expiresIn: '336h' }); // 2 weeks, NOT SECURE AT ALL
                         res.status(200).json({ "token": token });
                     } else if (err) { // Error
                         console.log(err);

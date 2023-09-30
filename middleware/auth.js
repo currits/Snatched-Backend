@@ -5,7 +5,19 @@ const jwt = require("jsonwebtoken");
     Verifies json web token is legit and attatches decoded token to request
 */
 const verifyToken = (req, res, next) => {
-    const token = req.headers.authorization.split(' ')[1];
+
+    let token;
+
+    if (!req.headers.authorization)
+        return res.status(403).send("Missing token");
+
+    try {
+        token = req.headers.authorization.split(' ')[1];
+    }
+    catch (err) {
+        console.error(err);
+        return res.status(400).send("Failed to read token");
+    }
 
     if (!token) {
         return res.status(403).send("Missing Token");
