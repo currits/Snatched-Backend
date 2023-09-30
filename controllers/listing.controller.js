@@ -267,33 +267,83 @@ exports.getSearchResults = async (req, res) => {
           }
         });
         searchResults = searchResults.concat(listingsWithTags);
-        searchResults.forEach(async item => {
-          var address = await item.getAddress();
-          var addressString = "";
-          if (address.unit_no != null)
-            addressString += " " + address.unit_no;
-          if (address.street_no != null)
-            addressString += " " + address.street_no;
-          if (address.street_name != null)
-            addressString += " " + address.street_name;
-          if (address.town_city != null)
-            addressString += " " + address.town_city;
-          addressString = addressString.slice(1);
-          item["address"] = addressString;
-          item["lat"] = address.lat;
-          item["lon"] = address.lon;
-        })
       }
+      var finalResults = await Promise.all(await searchResults.map(async item => {
+        var result = item.toJSON();
+        var address = await item.getAddress();
+        var addressString = "";
+        if (address.unit_no != null)
+          addressString += " " + address.unit_no;
+        if (address.street_no != null)
+          addressString += " " + address.street_no;
+        if (address.street_name != null)
+          addressString += " " + address.street_name;
+        if (address.town_city != null)
+          addressString += " " + address.town_city;
+        addressString = addressString.slice(1);
+        result["address"] = addressString;
+        result["lat"] = address.lat;
+        result["lon"] = address.lon;
+        return result;
+      }));
       if (searchResults.length == 0)
         res.status(500).send("No results found.");
       else
-        res.status(200).send(searchResults);
+        res.status(200).send(finalResults);
     }
 
   } catch (error) {
     console.log(error);
     res.status(500).send("Error in search function");
   }
+}
+
+exports.getOwnListings = async (req, res) => {
+  if (req.user.user_ID) {
+    const id = req.user.user_ID;
+    var ownListings = db.listing.findAll({
+      where: {
+        userUserID: id
+      }
+    }
+    );
+
+    if (!ownListings)
+      return res.status(404).send("No listings for current user found.");
+
+    var finalResults = ownListings.map(async x => {
+      var result = x.toJSON();
+      var tags = await x.getTags();
+      if (tags){
+        var tagString = "";
+        tags.forEach(z => tagString += "," + z.tag);
+        tagString = tagString.slice(1);
+        result["tags"] = tagString;
+      }
+      var address = await x.getAddress();
+      if (address) {
+        var addressString = "";
+        if (address.unit_no != null)
+          addressString += " " + address.unit_no;
+        if (address.street_no != null)
+          addressString += " " + address.street_no;
+        if (address.street_name != null)
+          addressString += " " + address.street_name;
+        if (address.town_city != null)
+          addressString += " " + address.town_city;
+        addressString = addressString.slice(1);
+        result["address"] = addressString;
+        result["lat"] = address.lat;
+        result["lon"] = address.lon;
+      }
+      return result;
+    });
+
+    res.status(200).send(finalResults);
+  }
+  else
+    res.status(500).send("Error retrieving user's listing")
+
 }
 
 // Controller for Deleting a listing
