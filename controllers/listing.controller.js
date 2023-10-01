@@ -356,6 +356,10 @@ exports.deleteListing = async (req, res) => {
   try {
     var listingID = req.params.id;
     var listing = await listingDB.findByPk(listingID);
+
+    if (listing.userUserID != req.user.user_ID)
+      return res.status(403).send("you may only delete your own listings")
+
     if (listing != null) {
       await listing.destroy();
       res.status(200).send(listing);
