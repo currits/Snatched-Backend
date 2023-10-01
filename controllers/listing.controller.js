@@ -129,18 +129,17 @@ exports.getMany = async (req, res) => {
     return res.status(204).send();
 
   //if we did, attempt to retrieve every listing associated with each address
-  console.log(addressResults.length);
   try {
     //promise all so we wait until all results are retrieved before sending data
     var listingResults = await Promise.all(await addressResults.map(async x => {
       //check if listings exist
       var listingCount = await x.countListings();
+      console.log(listingCount);
       if (listingCount > 0) {
         //get them
         var listingsAtAddress = await x.getListings();
         //and for each of the found listings, create a json with the listings coords and tags attached
         return (listingsAtAddress.map(y => {
-          console.log("inside 3");
           var processedListing = y.toJSON();
           processedListing["lat"] = x.lat;
           processedListing["lon"] = x.lon;
@@ -148,7 +147,9 @@ exports.getMany = async (req, res) => {
           return (processedListing);
         }));
       }
+      else return null;
     }));
+    listingResults = listingResults.filter(x => x != null);
   }
   catch (err) {
     console.error(err);
@@ -160,7 +161,7 @@ exports.getMany = async (req, res) => {
     return res.status(204).send();
   else {
     listingResults = listingResults.flat()
-    res.status(200).send(listingResults); console.log("end reached");
+    res.status(200).send(listingResults);
   }
 };
 
@@ -447,7 +448,7 @@ exports.updateListing = async (req, res) => {
 
   try {
     if (req.body.address) {
-      var dbAddress = getAddress(req.body.address); // Get/add address
+      var dbAddress = await getAddress(req.body.address); // Get/add address
 
       if (dbAddress === 1)
         return res.status(400).send("address could not be found");
@@ -478,6 +479,7 @@ exports.updateListing = async (req, res) => {
 // returns 1 if errors
 async function addTags(tags, listing) {
   try {
+    tags = tags.split(',');
     tags.forEach(async _tag => {
       let dbTag = await db.tag.findOne({
         where: {
