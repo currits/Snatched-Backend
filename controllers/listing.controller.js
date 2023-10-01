@@ -81,17 +81,16 @@ exports.createListing = async (req, res) => {
 //    lon: longitude of a center point of a square to search within
 // Returns JSON array of listings with; listing_ID,title, desc, stock num, pickup_instructions, and the lat and lon for each (for displaying on map)
 exports.getMany = async (req, res) => {
-  try {
-    //this needs to be expanded to changed to send
-    //  -latlon data for app to place markers
-    //  -only listing IDs and title, leave individual (ie marker taps) to findByPk method
-    var latlon = { lat: parseFloat(req.query.lat), lon: parseFloat(req.query.lon) };
-    //code for calculating circle distances would go here, centre point coords stored in req.body.lat and req.body.lon
-    //ideally results in assoc array with fields pos1, pos2 to dentote two lat/lon points (bottom left and top right) that form a square for us to check within
-    //for now, just search within an inflated square, with sides approx 22km long
-    var pos1 = { lat: latlon.lat - 0.1, lon: latlon.lon - 0.1 };
-    var pos2 = { lat: latlon.lat + 0.1, lon: latlon.lon + 0.1 };
+  //this needs to be expanded to changed to send
+  //  -only listing IDs and title, leave individual (ie marker taps) to findByPk method
+  var latlon = { lat: parseFloat(req.query.lat), lon: parseFloat(req.query.lon) };
+  //code for calculating circle distances would go here, centre point coords stored in req.body.lat and req.body.lon
+  //ideally results in assoc array with fields pos1, pos2 to dentote two lat/lon points (bottom left and top right) that form a square for us to check within
+  //for now, just search within an inflated square, with sides approx 22km long
+  var pos1 = { lat: latlon.lat - 0.1, lon: latlon.lon - 0.1 };
+  var pos2 = { lat: latlon.lat + 0.1, lon: latlon.lon + 0.1 };
 
+  try {
     //this retrieves an array of address instances
     var addressResults = await addressDB.findAll({
       where: {
@@ -109,13 +108,19 @@ exports.getMany = async (req, res) => {
         ]
       }
     });
+  }
+  catch (err) {
+    console.error(err);
+    return res.status(500).send("server error finding addresses")
+  }
 
-    //first see if we actually retrieved stored addresses
-    if (addressResults == null)
-      return res.status(500).send("No listings found near those coordinates.");
+  //first see if we actually retrieved stored addresses
+  if (!addressResults)
+    return res.status(204);
 
-    //if we did, attempt to retrieve every listing associated with each address
-    console.log(addressResults.length);
+  //if we did, attempt to retrieve every listing associated with each address
+  console.log(addressResults.length);
+  try {
     //promise all so we wait until all results are retrieved before sending data
     var listingResults = await Promise.all(await addressResults.map(async x => {
       //check if listings exist
@@ -134,18 +139,18 @@ exports.getMany = async (req, res) => {
         }));
       }
     }));
+  }
+  catch (err) {
+    console.error(err);
+    return res.status(500).send("server error getting listings")
+  }
 
-    if (listingResults.length == 0)
-      return res.status(204);
-    else {
-      listingResults = listingResults.flat()
-      res.status(200).send(listingResults); console.log("end reached");
-    }
 
-  } catch (error) {
-    //if we encounter a problem, return problem code
-    console.log(error);
-    res.status(500).send("Error retrieving listing data from server.");
+  if (listingResults.length == 0)
+    return res.status(204);
+  else {
+    listingResults = listingResults.flat()
+    res.status(200).send(listingResults); console.log("end reached");
   }
 };
 
