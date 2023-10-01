@@ -45,7 +45,7 @@ async function editUser(req, res) {
 
         await dbUser.save();
 
-        res.status(204);
+        res.status(204).send("Success updating user.");
     }
     catch (err) {
         console.error(err);

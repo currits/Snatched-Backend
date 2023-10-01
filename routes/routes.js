@@ -15,6 +15,8 @@ router.post("/listing/create", verifyToken, listings.createListing);
 router.get("/listing/", verifyToken, listings.getMany);
 // For getting a single listing. Submit id as part of url.
 router.get("/listing/:id", verifyToken, listings.getOne);
+// For getting a user's own listings
+router.get("/own", verifyToken, listings.getOwnListings);
 // For deleting a single listing. Submit id as part of url.
 router.delete("/listing/:id", verifyToken, listings.deleteListing);
 // For updating a single listing. Submit id as part of url, new data as part of body.

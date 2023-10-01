@@ -5,7 +5,7 @@
 "stock_num":"3",
 "description":"MY CABBAGES",
 "tags":["Vegetable","Fresh"],
-"user_id":"1",
+"user_id":"6",
 "should_contact": "0"
 }
 {
@@ -15,7 +15,7 @@
 "stock_num":"1",
 "description":"Naranjas",
 "tags":["Fruit","Tree"],
-"user_id":"1",
+"user_id":"6",
 "should_contact": "1"
 }
 {
@@ -25,7 +25,7 @@
 "stock_num":"8",
 "description":"Will help you see better (srs)",
 "tags":["Vegetable"],
-"user_id":"1",
+"user_id":"6",
 "should_contact": "1"
 }
 {
@@ -35,7 +35,7 @@
 "stock_num":"50",
 "description":"LEAF GREEN",
 "tags":["Vegetable"],
-"user_id":"1",
+"user_id":"6",
 "should_contact": "0"
 }
 {
@@ -45,7 +45,7 @@
 "stock_num":"99",
 "description":"Come get em",
 "tags":["Vegetable","Tree"],
-"user_id":"1",
+"user_id":"6",
 "should_contact": "1"
 }
 {
@@ -55,7 +55,7 @@
 "stock_num":"1000",
 "description":"Die zespri",
 "tags":["Corpo","Fruit"],
-"user_id":"1",
+"user_id":"6",
 "should_contact": "0"
 }
 {
@@ -65,6 +65,6 @@
 "stock_num":"99",
 "description":"GIVE US YOUR WASTE",
 "tags":["outsidescope"],
-"user_id":"1",
+"user_id":"6",
 "should_contact": "1"
 }
