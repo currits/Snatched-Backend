@@ -3,11 +3,9 @@ const db = require('../models');
 
 async function getUser(req, res) {
     const id = req.params.id ? req.params.id : req.user.user_ID;
-    let dbUser;
 
-    console.log(req.params.id);
     try {
-        dbUser = await db.user.findByPk(id);
+        var dbUser = await db.user.findByPk(id);
     }
     catch (err) {
         console.error(err);

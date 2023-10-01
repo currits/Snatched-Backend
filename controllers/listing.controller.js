@@ -1,8 +1,6 @@
 require('dotenv').config();
-const Sequelize = require('sequelize');
 const { Op } = require('sequelize');
 const db = require('../models');
-const e = require('express');
 const listingDB = db.listing;
 const addressDB = db.address;
 const tagDB = db.tag;
@@ -23,11 +21,23 @@ exports.createListing = async (req, res) => {
     return res.status(400).send("missing listing component");
   }
 
-  // Get user instance from decoded jwt
-  let dbUser = await db.user.findByPk(req.user.user_ID);
+  try {
+    // Get user instance from decoded jwt
+    var dbUser = await db.user.findByPk(req.user.user_ID);
+  }
+  catch (err) {
+    console.error(err);
+    return res.status(500).send("server error finding user")
+  }
 
-  // Get/add address
-  let dbAddress = await getAddress(req.body.address);
+  try {
+    // Get/add address
+    var dbAddress = await getAddress(req.body.address);
+  }
+  catch (err) {
+    console.error(err);
+    return res.status(500).send("server error getting address")
+  }
 
   if (dbAddress === 1)
     return res.status(400).send("address could not be found");
@@ -35,10 +45,9 @@ exports.createListing = async (req, res) => {
   if (dbAddress === 2)
     return res.status(502).send("bad google gateway");
 
-  let dbListing;
   try {
     // Create the listing
-    dbListing = await db.listing.create(({
+    var dbListing = await db.listing.create(({
       title: req.body.title,
       stock_num: req.body.stock_num,
       pickup_instructions: req.body.pickup_instructions,
@@ -81,17 +90,16 @@ exports.createListing = async (req, res) => {
 //    lon: longitude of a center point of a square to search within
 // Returns JSON array of listings with; listing_ID,title, desc, stock num, pickup_instructions, and the lat and lon for each (for displaying on map)
 exports.getMany = async (req, res) => {
-  try {
-    //this needs to be expanded to changed to send
-    //  -latlon data for app to place markers
-    //  -only listing IDs and title, leave individual (ie marker taps) to findByPk method
-    var latlon = { lat: parseFloat(req.query.lat), lon: parseFloat(req.query.lon) };
-    //code for calculating circle distances would go here, centre point coords stored in req.body.lat and req.body.lon
-    //ideally results in assoc array with fields pos1, pos2 to dentote two lat/lon points (bottom left and top right) that form a square for us to check within
-    //for now, just search within an inflated square, with sides approx 22km long
-    var pos1 = { lat: latlon.lat - 0.1, lon: latlon.lon - 0.1 };
-    var pos2 = { lat: latlon.lat + 0.1, lon: latlon.lon + 0.1 };
+  //this needs to be expanded to changed to send
+  //  -only listing IDs and title, leave individual (ie marker taps) to findByPk method
+  var latlon = { lat: parseFloat(req.query.lat), lon: parseFloat(req.query.lon) };
+  //code for calculating circle distances would go here, centre point coords stored in req.body.lat and req.body.lon
+  //ideally results in assoc array with fields pos1, pos2 to dentote two lat/lon points (bottom left and top right) that form a square for us to check within
+  //for now, just search within an inflated square, with sides approx 22km long
+  var pos1 = { lat: latlon.lat - 0.1, lon: latlon.lon - 0.1 };
+  var pos2 = { lat: latlon.lat + 0.1, lon: latlon.lon + 0.1 };
 
+  try {
     //this retrieves an array of address instances
     var addressResults = await addressDB.findAll({
       where: {
@@ -109,13 +117,19 @@ exports.getMany = async (req, res) => {
         ]
       }
     });
+  }
+  catch (err) {
+    console.error(err);
+    return res.status(500).send("server error finding addresses")
+  }
 
-    //first see if we actually retrieved stored addresses
-    if (addressResults == null)
-      return res.status(500).send("No listings found near those coordinates.");
+  //first see if we actually retrieved stored addresses
+  if (!addressResults)
+    return res.status(204);
 
-    //if we did, attempt to retrieve every listing associated with each address
-    console.log(addressResults.length);
+  //if we did, attempt to retrieve every listing associated with each address
+  console.log(addressResults.length);
+  try {
     //promise all so we wait until all results are retrieved before sending data
     var listingResults = await Promise.all(await addressResults.map(async x => {
       //check if listings exist
@@ -134,18 +148,18 @@ exports.getMany = async (req, res) => {
         }));
       }
     }));
+  }
+  catch (err) {
+    console.error(err);
+    return res.status(500).send("server error getting listings")
+  }
 
-    if (listingResults.length == 0)
-      return res.status(404).send("No listings found near those coordinates.");
-    else {
-      listingResults = listingResults.flat()
-      res.status(200).send(listingResults); console.log("end reached");
-    }
 
-  } catch (error) {
-    //if we encounter a problem, return problem code
-    console.log(error);
-    res.status(500).send("Error retrieving listing data from server.");
+  if (listingResults.length == 0)
+    return res.status(204);
+  else {
+    listingResults = listingResults.flat()
+    res.status(200).send(listingResults); console.log("end reached");
   }
 };
 
@@ -156,46 +170,52 @@ exports.getMany = async (req, res) => {
 // user (producer) that created the listing (currrently just sends userID, could also include user contact deets but would prefer
 // to not eager load user deets re privacy)
 exports.getOne = async (req, res) => {
+  var listingID = req.params.id;
   try {
-    var listingID = req.params.id;
     var listing = await listingDB.findByPk(listingID);
-    if (listing != null) {
-      var tags = await listing.getTags();
-      var address = await listing.getAddress();
-      var listingCreator = await listing.getUser();
-      var responseObject = listing.toJSON();
-
-      if (tags != null) {
-        var tagString = "";
-        tags.forEach(z => tagString += "," + z.tag);
-        tagString = tagString.slice(1);
-        responseObject["tags"] = tagString;
-      }
-
-      var addressString = "";
-      if (address.unit_no != null)
-        addressString += " " + address.unit_no;
-      if (address.street_no != null)
-        addressString += " " + address.street_no;
-      if (address.street_name != null)
-        addressString += " " + address.street_name;
-      if (address.town_city != null)
-        addressString += " " + address.town_city;
-      addressString = addressString.slice(1);
-      responseObject["address"] = addressString;
-      responseObject["lat"] = address.lat;
-      responseObject["lon"] = address.lon;
-
-      responseObject["producerID"] = listingCreator.user_ID;
-
-      res.status(200).send(responseObject);
-    }
-    else {
-      res.status(404).send("No listings found.");
-    }
-  } catch (error) {
-    res.status(500).send("Error retrieving listing data from server.");
   }
+  catch (err) {
+    console.error(err);
+    return res.status(500).send("server error retrieving listing")
+  }
+  if (!listing)
+    return res.status(204); // No listing found
+
+  try {
+    var tags = await listing.getTags();
+    var address = await listing.getAddress();
+    var listingCreator = await listing.getUser();
+    var responseObject = listing.toJSON();
+  }
+  catch (err) {
+    console.error(err);
+    return res.status(500).send("server error while getting listing relations")
+  }
+
+  if (tags != null) {
+    var tagString = "";
+    tags.forEach(z => tagString += "," + z.tag);
+    tagString = tagString.slice(1);
+    responseObject["tags"] = tagString;
+  }
+
+  var addressString = "";
+  if (address.unit_no != null)
+    addressString += " " + address.unit_no;
+  if (address.street_no != null)
+    addressString += " " + address.street_no;
+  if (address.street_name != null)
+    addressString += " " + address.street_name;
+  if (address.town_city != null)
+    addressString += " " + address.town_city;
+  addressString = addressString.slice(1);
+  responseObject["address"] = addressString;
+  responseObject["lat"] = address.lat;
+  responseObject["lon"] = address.lon;
+
+  responseObject["producerID"] = listingCreator.user_ID;
+
+  res.status(200).send(responseObject);
 };
 
 // Controller for retreiving search results from tags and keywords
@@ -206,118 +226,150 @@ exports.getOne = async (req, res) => {
 // All listings that contain the passed tags or keywords, inclusive.
 // Listing data will include ID's, stock, pickup, title, desc, date created, date updated, and addressID
 exports.getSearchResults = async (req, res) => {
-  try {
-    //first we'll need to extract keywords
-    var keywords = req.query.keywords;
-    var tags = req.query.tags;
-    //if no search terms
-    if ((keywords == null) && (tags == null))
-      res.status(500).send("Must be searching by at least one tag or keyword.")
-    else {
-      //otherwise
-      var tagsList = [];
-      var keywordList = [];
-      var searchResults = [];
-      //if there are keywords, collect them
-      if (keywords != null) {
-        //going to assume we have seperated keywords by ','
-        console.log(keywords);
-        keywordList = keywords.split(',');
-        console.log(keywordList);
-        //setting up for pattern matching
-        keywordList = keywordList.map(item => {
-          return ({ [Op.or]: [{ description: { [Op.like]: '%' + item + '%' } }, { title: { [Op.like]: '%' + item + '%' } }] });
-        });
-        //collect all listings that contain the keywords anywhere in their title or description
-        var keywordResults = await listingDB.findAll({
-          where: {
-            [Op.or]: keywordList
-          }
-        });
-        searchResults = searchResults.concat(keywordResults);
-      }
-      //if there are tags, collect them
-      if (tags != null) {
-        //going to assume we have seperated tags by ','
-        console.log(tags);
-        tagsList = tags.split(',');
-        console.log(tagsList);
-        //setting up for pattern matching
-        tagsList = tagsList.map(item => {
-          return ({ tag: { [Op.like]: '%' + item + '%' } });
-        });
-        //collect all tags matching
-        var tagResults = await tagDB.findAll({ where: { [Op.or]: tagsList } });
-        //get all listings associated with those tags
-        var listingsWithTags = await Promise.all(await tagResults.map(async x => {
-          var result = await x.getListings();
-          return (result);
-        }));
-        //flatten the array
-        listingsWithTags = listingsWithTags.flat();
-        var uniqueID = [];
-        //filter out duplicates
-        listingsWithTags = listingsWithTags.filter((item) => {
-          if (uniqueID.includes(item.listing_ID)) {
-            return false;
-          }
-          else {
-            uniqueID.push(item.listing_ID);
-            return true;
-          }
-        });
-        searchResults = searchResults.concat(listingsWithTags);
-      }
-      var finalResults = await Promise.all(await searchResults.map(async item => {
-        var result = item.toJSON();
-        var address = await item.getAddress();
-        var addressString = "";
-        if (address.unit_no != null)
-          addressString += " " + address.unit_no;
-        if (address.street_no != null)
-          addressString += " " + address.street_no;
-        if (address.street_name != null)
-          addressString += " " + address.street_name;
-        if (address.town_city != null)
-          addressString += " " + address.town_city;
-        addressString = addressString.slice(1);
-        result["address"] = addressString;
-        result["lat"] = address.lat;
-        result["lon"] = address.lon;
-        return result;
-      }));
-      if (searchResults.length == 0)
-        res.status(500).send("No results found.");
-      else
-        res.status(200).send(finalResults);
+  //first we'll need to extract keywords
+  var keywords = req.query.keywords;
+  var tags = req.query.tags;
+
+  if ((keywords == null) && (tags == null)) // Missing search terms
+    return res.status(400).send("Must be searching by at least one tag or keyword.")
+
+  var tagsList = [];
+  var keywordList = [];
+  var searchResults = [];
+  //if there are keywords, collect them
+  if (keywords != null) {
+    //going to assume we have seperated keywords by ','
+    console.log(keywords);
+    keywordList = keywords.split(',');
+    console.log(keywordList);
+    //setting up for pattern matching
+    keywordList = keywordList.map(item => {
+      return ({ [Op.or]: [{ description: { [Op.like]: '%' + item + '%' } }, { title: { [Op.like]: '%' + item + '%' } }] });
+    });
+
+    try {
+      //collect all listings that contain the keywords anywhere in their title or description
+      var keywordResults = await listingDB.findAll({
+        where: {
+          [Op.or]: keywordList
+        }
+      });
+    }
+    catch (err) {
+      console.error(err);
+      return res.status(500).send("errored searching with keywords")
+    }
+    searchResults = searchResults.concat(keywordResults);
+  }
+
+  //if there are tags, collect them
+  if (tags != null) {
+    //going to assume we have seperated tags by ','
+    console.log(tags);
+    tagsList = tags.split(',');
+    console.log(tagsList);
+    //setting up for pattern matching
+    tagsList = tagsList.map(item => {
+      return ({ tag: { [Op.like]: '%' + item + '%' } });
+    });
+
+    try {
+      //collect all tags matching
+      var tagResults = await tagDB.findAll({ where: { [Op.or]: tagsList } });
+    }
+    catch (err) {
+      console.error(err);
+      return res.status(500).send("errored finding tags")
     }
 
-  } catch (error) {
-    console.log(error);
-    res.status(500).send("Error in search function");
+    try {
+      //get all listings associated with those tags
+      var listingsWithTags = await Promise.all(await tagResults.map(async x => {
+        var result = await x.getListings();
+        return (result);
+      }));
+    }
+    catch (err) {
+      console.error(err);
+      return res.status(500).send("errored searching by tags")
+    }
+
+    //flatten the array
+    listingsWithTags = listingsWithTags.flat();
+    var uniqueID = [];
+    //filter out duplicates
+    listingsWithTags = listingsWithTags.filter((item) => {
+      if (uniqueID.includes(item.listing_ID)) {
+        return false;
+      }
+      else {
+        uniqueID.push(item.listing_ID);
+        return true;
+      }
+    });
+
+    searchResults = searchResults.concat(listingsWithTags);
   }
+
+  try {
+    var finalResults = await Promise.all(await searchResults.map(async item => {
+      var result = item.toJSON();
+      var address = await item.getAddress();
+      var addressString = "";
+      if (address.unit_no != null)
+        addressString += " " + address.unit_no;
+      if (address.street_no != null)
+        addressString += " " + address.street_no;
+      if (address.street_name != null)
+        addressString += " " + address.street_name;
+      if (address.town_city != null)
+        addressString += " " + address.town_city;
+      addressString = addressString.slice(1);
+      result["address"] = addressString;
+      result["lat"] = address.lat;
+      result["lon"] = address.lon;
+      return result;
+    }));
+  }
+  catch (err) {
+    console.error(err);
+    return res.status(500).send("errored collating final results")
+  }
+
+  if (searchResults.length == 0)
+    res.status(204);
+  else
+    res.status(200).send(finalResults);
 }
 
 exports.getOwnListings = async (req, res) => {
   console.log("ownListing inside 0");
-  if (req.user.user_ID) {
-    const id = req.user.user_ID;
-    console.log("ownListing inside 1", id);
+  const id = req.user.user_ID;
+  console.log("ownListing inside 1", id);
+
+  try {
     var ownListings = await db.listing.findAll({
       where: {
         userUserID: id
       }
     }
     );
+  }
+  catch (err) {
+    console.error(err);
+    return res.status(500).send("server error finding user listings")
+  }
 
-    if (!ownListings)
-      return res.status(404).send("No listings for current user found.");
+  if (!ownListings)
+    return res.status(204);
 
-    console.log(ownListings);
+  console.log(ownListings);
+
+  try {
     var finalResults = await Promise.all(await ownListings.map(async x => {
       var result = x.toJSON();
       var tags = await x.getTags();
-      if (tags){
+      if (tags) {
         var tagString = "";
         tags.forEach(z => tagString += "," + z.tag);
         tagString = tagString.slice(1);
@@ -341,12 +393,14 @@ exports.getOwnListings = async (req, res) => {
       }
       return result;
     }));
-    console.log("listing own inside last")
-    res.status(200).send(finalResults);
   }
-  else
-    res.status(500).send("Error retrieving user's listing")
+  catch (err) {
+    console.error(err);
+    return res.status(500).send("errored collating final results")
+  }
 
+  console.log("listing own inside last")
+  res.status(200).send(finalResults);
 }
 
 // Controller for Deleting a listing
@@ -356,22 +410,31 @@ exports.deleteListing = async (req, res) => {
   try {
     var listingID = req.params.id;
     var listing = await listingDB.findByPk(listingID);
-    if (listing != null) {
-      await listing.destroy();
-      res.status(200).send(listing);
-    }
-    else
-      res.status(404).send("The requested listing was not found. It may have already been deleted.");
+
+    if (!listing)
+      return res.status(404).send("The requested listing was not found. It may have already been deleted.");
+
+    if (listing.userUserID != req.user.user_ID)
+      return res.status(403).send("you may only delete your own listings")
+
+    await listing.destroy();
+    res.status(200).send(listing);
   } catch (error) {
-    console.log(error);
-    res.status(500).send("Server error performing delete request.");
+    console.error(error);
+    return res.status(500).send("server error deleting listing");
   }
 }
 
 exports.updateListing = async (req, res) => {
   // Find listing
   var listingID = req.params.id;
-  var listing = await listingDB.findByPk(listingID);
+  try {
+    var listing = await listingDB.findByPk(listingID);
+  }
+  catch (err) {
+    console.error(err);
+    return res.status(500).send("server error finding listing")
+  }
 
   // If no listing, return missing
   if (!listing)
@@ -384,29 +447,48 @@ exports.updateListing = async (req, res) => {
   if (req.body.pickup_instructions) listing.pickup_instructions = req.body.pickup_instructions;
   if (req.body.should_contact) listing.should_contact = req.body.should_contact;
 
-  // Set new tags
-  if (req.body.tags) {
-    // Remove tags first
-    await listing.removeTags();
+  try {
+    // Set new tags
+    if (req.body.tags) {
+      // Remove tags first
+      await listing.removeTags();
 
-    // Add the tags
-    if (addTags(req.body.tags, listing) === 1)
-      return res.status(500).send("could not add tags")
+      // Add the tags
+      if (addTags(req.body.tags, listing) === 1)
+        return res.status(500).send("could not add tags")
+    }
+  }
+  catch (err) {
+    console.error(err);
+    return res.status(500).send("server error setting tags")
   }
 
-  if (req.body.address) {
-    let dbAddress = getAddress(req.body.address); // Get/add address
+  try {
+    if (req.body.address) {
+      var dbAddress = getAddress(req.body.address); // Get/add address
 
-    if (dbAddress === 1)
-      return res.status(400).send("address could not be found");
+      if (dbAddress === 1)
+        return res.status(400).send("address could not be found");
 
-    if (dbAddress === 2)
-      return res.status(502).send("bad google gateway");
+      if (dbAddress === 2)
+        return res.status(502).send("bad google gateway");
 
-    await listing.setAddress(dbAddress);
+      await listing.setAddress(dbAddress);
+    }
+  }
+  catch (err) {
+    console.error(err);
+    return res.status(500).send("server error updating address")
   }
 
-  await listing.save();
+  try {
+    await listing.save();
+  }
+  catch (err) {
+    console.error(err);
+    return res.status(500).send("server error while saving listing")
+  }
+
   res.status(204).send(listing);
 }
 
