@@ -232,12 +232,19 @@ exports.getSearchResults = async (req, res) => {
     keywordList = keywordList.map(item => {
       return ({ [Op.or]: [{ description: { [Op.like]: '%' + item + '%' } }, { title: { [Op.like]: '%' + item + '%' } }] });
     });
-    //collect all listings that contain the keywords anywhere in their title or description
-    var keywordResults = await listingDB.findAll({
-      where: {
-        [Op.or]: keywordList
-      }
-    });
+
+    try {
+      //collect all listings that contain the keywords anywhere in their title or description
+      var keywordResults = await listingDB.findAll({
+        where: {
+          [Op.or]: keywordList
+        }
+      });
+    }
+    catch (err) {
+      console.error(err);
+      return res.status(500).send("errored searching with keywords")
+    }
     searchResults = searchResults.concat(keywordResults);
   }
 
@@ -251,13 +258,28 @@ exports.getSearchResults = async (req, res) => {
     tagsList = tagsList.map(item => {
       return ({ tag: { [Op.like]: '%' + item + '%' } });
     });
-    //collect all tags matching
-    var tagResults = await tagDB.findAll({ where: { [Op.or]: tagsList } });
-    //get all listings associated with those tags
-    var listingsWithTags = await Promise.all(await tagResults.map(async x => {
-      var result = await x.getListings();
-      return (result);
-    }));
+
+    try {
+      //collect all tags matching
+      var tagResults = await tagDB.findAll({ where: { [Op.or]: tagsList } });
+    }
+    catch (err) {
+      console.error(err);
+      return res.status(500).send("errored finding tags")
+    }
+
+    try {
+      //get all listings associated with those tags
+      var listingsWithTags = await Promise.all(await tagResults.map(async x => {
+        var result = await x.getListings();
+        return (result);
+      }));
+    }
+    catch (err) {
+      console.error(err);
+      return res.status(500).send("errored searching by tags")
+    }
+
     //flatten the array
     listingsWithTags = listingsWithTags.flat();
     var uniqueID = [];
@@ -271,27 +293,34 @@ exports.getSearchResults = async (req, res) => {
         return true;
       }
     });
+
     searchResults = searchResults.concat(listingsWithTags);
   }
 
-  var finalResults = await Promise.all(await searchResults.map(async item => {
-    var result = item.toJSON();
-    var address = await item.getAddress();
-    var addressString = "";
-    if (address.unit_no != null)
-      addressString += " " + address.unit_no;
-    if (address.street_no != null)
-      addressString += " " + address.street_no;
-    if (address.street_name != null)
-      addressString += " " + address.street_name;
-    if (address.town_city != null)
-      addressString += " " + address.town_city;
-    addressString = addressString.slice(1);
-    result["address"] = addressString;
-    result["lat"] = address.lat;
-    result["lon"] = address.lon;
-    return result;
-  }));
+  try {
+    var finalResults = await Promise.all(await searchResults.map(async item => {
+      var result = item.toJSON();
+      var address = await item.getAddress();
+      var addressString = "";
+      if (address.unit_no != null)
+        addressString += " " + address.unit_no;
+      if (address.street_no != null)
+        addressString += " " + address.street_no;
+      if (address.street_name != null)
+        addressString += " " + address.street_name;
+      if (address.town_city != null)
+        addressString += " " + address.town_city;
+      addressString = addressString.slice(1);
+      result["address"] = addressString;
+      result["lat"] = address.lat;
+      result["lon"] = address.lon;
+      return result;
+    }));
+  }
+  catch (err) {
+    console.error(err);
+    return res.status(500).send("errored collating final results")
+  }
 
   if (searchResults.length == 0)
     res.status(204);
