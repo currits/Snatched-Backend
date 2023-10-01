@@ -195,10 +195,8 @@ exports.getOne = async (req, res) => {
   }
 
   if (tags != null) {
-    var tagString = "";
-    tags.forEach(z => tagString += "," + z.tag);
-    tagString = tagString.slice(1);
-    responseObject["tags"] = tagString;
+    tags = tags.map(z => {return z.toJSON().tag});
+    responseObject["tags"] = tags;
   }
 
   var addressString = "";
@@ -346,17 +344,13 @@ exports.getOwnListings = async (req, res) => {
   if (ownListings.length == 0)
     return res.status(204).send();
 
-  console.log(ownListings);
-
   try {
     var finalResults = await Promise.all(await ownListings.map(async x => {
       var result = x.toJSON();
       var tags = await x.getTags();
       if (tags) {
-        var tagString = "";
-        tags.forEach(z => tagString += "," + z.tag);
-        tagString = tagString.slice(1);
-        result["tags"] = tagString;
+        tags = tags.map(z => {return z.toJSON().tag});
+        result["tags"] = tags;
       }
       var address = await x.getAddress();
       if (address) {
@@ -439,7 +433,7 @@ exports.updateListing = async (req, res) => {
     // Set new tags
     if (req.body.tags) {
       // Remove tags first
-      await listing.removeTags();
+      await listing.setTags([]);
 
       // Add the tags
       if (addTags(req.body.tags, listing) === 1)
@@ -484,7 +478,6 @@ exports.updateListing = async (req, res) => {
 // returns 1 if errors
 async function addTags(tags, listing) {
   try {
-    tags = tags.split(',');
     tags.forEach(async _tag => {
       let dbTag = await db.tag.findOne({
         where: {
