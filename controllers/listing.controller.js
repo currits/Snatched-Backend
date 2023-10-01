@@ -156,46 +156,52 @@ exports.getMany = async (req, res) => {
 // user (producer) that created the listing (currrently just sends userID, could also include user contact deets but would prefer
 // to not eager load user deets re privacy)
 exports.getOne = async (req, res) => {
+  var listingID = req.params.id;
   try {
-    var listingID = req.params.id;
     var listing = await listingDB.findByPk(listingID);
-    if (listing != null) {
-      var tags = await listing.getTags();
-      var address = await listing.getAddress();
-      var listingCreator = await listing.getUser();
-      var responseObject = listing.toJSON();
-
-      if (tags != null) {
-        var tagString = "";
-        tags.forEach(z => tagString += "," + z.tag);
-        tagString = tagString.slice(1);
-        responseObject["tags"] = tagString;
-      }
-
-      var addressString = "";
-      if (address.unit_no != null)
-        addressString += " " + address.unit_no;
-      if (address.street_no != null)
-        addressString += " " + address.street_no;
-      if (address.street_name != null)
-        addressString += " " + address.street_name;
-      if (address.town_city != null)
-        addressString += " " + address.town_city;
-      addressString = addressString.slice(1);
-      responseObject["address"] = addressString;
-      responseObject["lat"] = address.lat;
-      responseObject["lon"] = address.lon;
-
-      responseObject["producerID"] = listingCreator.user_ID;
-
-      res.status(200).send(responseObject);
-    }
-    else {
-      res.status(204);
-    }
-  } catch (error) {
-    res.status(500).send("Error retrieving listing data from server.");
   }
+  catch (err) {
+    console.error(err);
+    return res.status(500).send("server error retrieving listing")
+  }
+  if (!listing)
+    return res.status(204); // No listing found
+
+  try {
+    var tags = await listing.getTags();
+    var address = await listing.getAddress();
+    var listingCreator = await listing.getUser();
+    var responseObject = listing.toJSON();
+  }
+  catch (err) {
+    console.error(err);
+    return res.status(500).send("server error while getting listing relations")
+  }
+
+  if (tags != null) {
+    var tagString = "";
+    tags.forEach(z => tagString += "," + z.tag);
+    tagString = tagString.slice(1);
+    responseObject["tags"] = tagString;
+  }
+
+  var addressString = "";
+  if (address.unit_no != null)
+    addressString += " " + address.unit_no;
+  if (address.street_no != null)
+    addressString += " " + address.street_no;
+  if (address.street_name != null)
+    addressString += " " + address.street_name;
+  if (address.town_city != null)
+    addressString += " " + address.town_city;
+  addressString = addressString.slice(1);
+  responseObject["address"] = addressString;
+  responseObject["lat"] = address.lat;
+  responseObject["lon"] = address.lon;
+
+  responseObject["producerID"] = listingCreator.user_ID;
+
+  res.status(200).send(responseObject);
 };
 
 // Controller for retreiving search results from tags and keywords
@@ -206,96 +212,91 @@ exports.getOne = async (req, res) => {
 // All listings that contain the passed tags or keywords, inclusive.
 // Listing data will include ID's, stock, pickup, title, desc, date created, date updated, and addressID
 exports.getSearchResults = async (req, res) => {
-  try {
-    //first we'll need to extract keywords
-    var keywords = req.query.keywords;
-    var tags = req.query.tags;
-    //if no search terms
-    if ((keywords == null) && (tags == null))
-      res.status(400).send("Must be searching by at least one tag or keyword.")
-    else {
-      //otherwise
-      var tagsList = [];
-      var keywordList = [];
-      var searchResults = [];
-      //if there are keywords, collect them
-      if (keywords != null) {
-        //going to assume we have seperated keywords by ','
-        console.log(keywords);
-        keywordList = keywords.split(',');
-        console.log(keywordList);
-        //setting up for pattern matching
-        keywordList = keywordList.map(item => {
-          return ({ [Op.or]: [{ description: { [Op.like]: '%' + item + '%' } }, { title: { [Op.like]: '%' + item + '%' } }] });
-        });
-        //collect all listings that contain the keywords anywhere in their title or description
-        var keywordResults = await listingDB.findAll({
-          where: {
-            [Op.or]: keywordList
-          }
-        });
-        searchResults = searchResults.concat(keywordResults);
-      }
-      //if there are tags, collect them
-      if (tags != null) {
-        //going to assume we have seperated tags by ','
-        console.log(tags);
-        tagsList = tags.split(',');
-        console.log(tagsList);
-        //setting up for pattern matching
-        tagsList = tagsList.map(item => {
-          return ({ tag: { [Op.like]: '%' + item + '%' } });
-        });
-        //collect all tags matching
-        var tagResults = await tagDB.findAll({ where: { [Op.or]: tagsList } });
-        //get all listings associated with those tags
-        var listingsWithTags = await Promise.all(await tagResults.map(async x => {
-          var result = await x.getListings();
-          return (result);
-        }));
-        //flatten the array
-        listingsWithTags = listingsWithTags.flat();
-        var uniqueID = [];
-        //filter out duplicates
-        listingsWithTags = listingsWithTags.filter((item) => {
-          if (uniqueID.includes(item.listing_ID)) {
-            return false;
-          }
-          else {
-            uniqueID.push(item.listing_ID);
-            return true;
-          }
-        });
-        searchResults = searchResults.concat(listingsWithTags);
-      }
-      var finalResults = await Promise.all(await searchResults.map(async item => {
-        var result = item.toJSON();
-        var address = await item.getAddress();
-        var addressString = "";
-        if (address.unit_no != null)
-          addressString += " " + address.unit_no;
-        if (address.street_no != null)
-          addressString += " " + address.street_no;
-        if (address.street_name != null)
-          addressString += " " + address.street_name;
-        if (address.town_city != null)
-          addressString += " " + address.town_city;
-        addressString = addressString.slice(1);
-        result["address"] = addressString;
-        result["lat"] = address.lat;
-        result["lon"] = address.lon;
-        return result;
-      }));
-      if (searchResults.length == 0)
-        res.status(204);
-      else
-        res.status(200).send(finalResults);
-    }
+  //first we'll need to extract keywords
+  var keywords = req.query.keywords;
+  var tags = req.query.tags;
 
-  } catch (error) {
-    console.log(error);
-    res.status(500).send("Error in search function");
+  if ((keywords == null) && (tags == null)) // Missing search terms
+    return res.status(400).send("Must be searching by at least one tag or keyword.")
+
+  var tagsList = [];
+  var keywordList = [];
+  var searchResults = [];
+  //if there are keywords, collect them
+  if (keywords != null) {
+    //going to assume we have seperated keywords by ','
+    console.log(keywords);
+    keywordList = keywords.split(',');
+    console.log(keywordList);
+    //setting up for pattern matching
+    keywordList = keywordList.map(item => {
+      return ({ [Op.or]: [{ description: { [Op.like]: '%' + item + '%' } }, { title: { [Op.like]: '%' + item + '%' } }] });
+    });
+    //collect all listings that contain the keywords anywhere in their title or description
+    var keywordResults = await listingDB.findAll({
+      where: {
+        [Op.or]: keywordList
+      }
+    });
+    searchResults = searchResults.concat(keywordResults);
   }
+
+  //if there are tags, collect them
+  if (tags != null) {
+    //going to assume we have seperated tags by ','
+    console.log(tags);
+    tagsList = tags.split(',');
+    console.log(tagsList);
+    //setting up for pattern matching
+    tagsList = tagsList.map(item => {
+      return ({ tag: { [Op.like]: '%' + item + '%' } });
+    });
+    //collect all tags matching
+    var tagResults = await tagDB.findAll({ where: { [Op.or]: tagsList } });
+    //get all listings associated with those tags
+    var listingsWithTags = await Promise.all(await tagResults.map(async x => {
+      var result = await x.getListings();
+      return (result);
+    }));
+    //flatten the array
+    listingsWithTags = listingsWithTags.flat();
+    var uniqueID = [];
+    //filter out duplicates
+    listingsWithTags = listingsWithTags.filter((item) => {
+      if (uniqueID.includes(item.listing_ID)) {
+        return false;
+      }
+      else {
+        uniqueID.push(item.listing_ID);
+        return true;
+      }
+    });
+    searchResults = searchResults.concat(listingsWithTags);
+  }
+
+  var finalResults = await Promise.all(await searchResults.map(async item => {
+    var result = item.toJSON();
+    var address = await item.getAddress();
+    var addressString = "";
+    if (address.unit_no != null)
+      addressString += " " + address.unit_no;
+    if (address.street_no != null)
+      addressString += " " + address.street_no;
+    if (address.street_name != null)
+      addressString += " " + address.street_name;
+    if (address.town_city != null)
+      addressString += " " + address.town_city;
+    addressString = addressString.slice(1);
+    result["address"] = addressString;
+    result["lat"] = address.lat;
+    result["lon"] = address.lon;
+    return result;
+  }));
+
+  if (searchResults.length == 0)
+    res.status(204);
+  else
+    res.status(200).send(finalResults);
 }
 
 exports.getOwnListings = async (req, res) => {
