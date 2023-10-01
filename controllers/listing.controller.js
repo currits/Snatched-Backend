@@ -129,18 +129,17 @@ exports.getMany = async (req, res) => {
     return res.status(204).send();
 
   //if we did, attempt to retrieve every listing associated with each address
-  console.log(addressResults.length);
   try {
     //promise all so we wait until all results are retrieved before sending data
     var listingResults = await Promise.all(await addressResults.map(async x => {
       //check if listings exist
       var listingCount = await x.countListings();
+      console.log(listingCount);
       if (listingCount > 0) {
         //get them
         var listingsAtAddress = await x.getListings();
         //and for each of the found listings, create a json with the listings coords and tags attached
         return (listingsAtAddress.map(y => {
-          console.log("inside 3");
           var processedListing = y.toJSON();
           processedListing["lat"] = x.lat;
           processedListing["lon"] = x.lon;
@@ -148,7 +147,9 @@ exports.getMany = async (req, res) => {
           return (processedListing);
         }));
       }
+      else return null;
     }));
+    listingResults = listingResults.filter(x => x != null);
   }
   catch (err) {
     console.error(err);
@@ -160,7 +161,7 @@ exports.getMany = async (req, res) => {
     return res.status(204).send();
   else {
     listingResults = listingResults.flat()
-    res.status(200).send(listingResults); console.log("end reached");
+    res.status(200).send(listingResults);
   }
 };
 
@@ -194,10 +195,8 @@ exports.getOne = async (req, res) => {
   }
 
   if (tags != null) {
-    var tagString = "";
-    tags.forEach(z => tagString += "," + z.tag);
-    tagString = tagString.slice(1);
-    responseObject["tags"] = tagString;
+    tags = tags.map(z => {return z.toJSON().tag});
+    responseObject["tags"] = tags;
   }
 
   var addressString = "";
@@ -345,17 +344,13 @@ exports.getOwnListings = async (req, res) => {
   if (ownListings.length == 0)
     return res.status(204).send();
 
-  console.log(ownListings);
-
   try {
     var finalResults = await Promise.all(await ownListings.map(async x => {
       var result = x.toJSON();
       var tags = await x.getTags();
       if (tags) {
-        var tagString = "";
-        tags.forEach(z => tagString += "," + z.tag);
-        tagString = tagString.slice(1);
-        result["tags"] = tagString;
+        tags = tags.map(z => {return z.toJSON().tag});
+        result["tags"] = tags;
       }
       var address = await x.getAddress();
       if (address) {
@@ -425,7 +420,12 @@ exports.updateListing = async (req, res) => {
   // Set new changes if found  
   if (req.body.title) listing.title = req.body.title;
   if (req.body.description) listing.description = req.body.description;
-  if (req.body.stock_num) listing.stock_num = req.body.stock_num;
+  if (req.body.stock_num) {
+    if (req.body.stock_num == "-")
+      listing.stock_num = null;
+    else
+    listing.stock_num = req.body.stock_num;
+  }
   if (req.body.pickup_instructions) listing.pickup_instructions = req.body.pickup_instructions;
   if (req.body.should_contact) listing.should_contact = req.body.should_contact;
 
@@ -433,7 +433,7 @@ exports.updateListing = async (req, res) => {
     // Set new tags
     if (req.body.tags) {
       // Remove tags first
-      await listing.removeTags();
+      await listing.setTags([]);
 
       // Add the tags
       if (addTags(req.body.tags, listing) === 1)
@@ -447,7 +447,7 @@ exports.updateListing = async (req, res) => {
 
   try {
     if (req.body.address) {
-      var dbAddress = getAddress(req.body.address); // Get/add address
+      var dbAddress = await getAddress(req.body.address); // Get/add address
 
       if (dbAddress === 1)
         return res.status(400).send("address could not be found");
