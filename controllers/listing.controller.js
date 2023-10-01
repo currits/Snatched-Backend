@@ -1,5 +1,6 @@
 require('dotenv').config();
 const { Op } = require('sequelize');
+const sequelize = require('sequelize');
 const db = require('../models');
 const listingDB = db.listing;
 const addressDB = db.address;
@@ -125,7 +126,7 @@ exports.getMany = async (req, res) => {
 
   //first see if we actually retrieved stored addresses
   if (!addressResults)
-    return res.status(204);
+    return res.status(204).send();
 
   //if we did, attempt to retrieve every listing associated with each address
   console.log(addressResults.length);
@@ -156,7 +157,7 @@ exports.getMany = async (req, res) => {
 
 
   if (listingResults.length == 0)
-    return res.status(204);
+    return res.status(204).send();
   else {
     listingResults = listingResults.flat()
     res.status(200).send(listingResults); console.log("end reached");
@@ -179,7 +180,7 @@ exports.getOne = async (req, res) => {
     return res.status(500).send("server error retrieving listing")
   }
   if (!listing)
-    return res.status(204); // No listing found
+    return res.status(204).send();; // No listing found
 
   try {
     var tags = await listing.getTags();
@@ -230,86 +231,69 @@ exports.getSearchResults = async (req, res) => {
   var keywords = req.query.keywords;
   var tags = req.query.tags;
 
-  if ((keywords == null) && (tags == null)) // Missing search terms
+  if ((!keywords && !tags) || (keywords == '' && tags == '')) // Missing search terms
     return res.status(400).send("Must be searching by at least one tag or keyword.")
 
   var tagsList = [];
   var keywordList = [];
-  var searchResults = [];
   //if there are keywords, collect them
   if (keywords != null) {
     //going to assume we have seperated keywords by ','
-    console.log(keywords);
     keywordList = keywords.split(',');
-    console.log(keywordList);
+
     //setting up for pattern matching
     keywordList = keywordList.map(item => {
       return ({ [Op.or]: [{ description: { [Op.like]: '%' + item + '%' } }, { title: { [Op.like]: '%' + item + '%' } }] });
     });
-
-    try {
-      //collect all listings that contain the keywords anywhere in their title or description
-      var keywordResults = await listingDB.findAll({
-        where: {
-          [Op.or]: keywordList
-        }
-      });
-    }
-    catch (err) {
-      console.error(err);
-      return res.status(500).send("errored searching with keywords")
-    }
-    searchResults = searchResults.concat(keywordResults);
   }
 
   //if there are tags, collect them
   if (tags != null) {
     //going to assume we have seperated tags by ','
-    console.log(tags);
     tagsList = tags.split(',');
-    console.log(tagsList);
-    //setting up for pattern matching
-    tagsList = tagsList.map(item => {
-      return ({ tag: { [Op.like]: '%' + item + '%' } });
-    });
-
-    try {
-      //collect all tags matching
-      var tagResults = await tagDB.findAll({ where: { [Op.or]: tagsList } });
-    }
-    catch (err) {
-      console.error(err);
-      return res.status(500).send("errored finding tags")
-    }
-
-    try {
-      //get all listings associated with those tags
-      var listingsWithTags = await Promise.all(await tagResults.map(async x => {
-        var result = await x.getListings();
-        return (result);
-      }));
-    }
-    catch (err) {
-      console.error(err);
-      return res.status(500).send("errored searching by tags")
-    }
-
-    //flatten the array
-    listingsWithTags = listingsWithTags.flat();
-    var uniqueID = [];
-    //filter out duplicates
-    listingsWithTags = listingsWithTags.filter((item) => {
-      if (uniqueID.includes(item.listing_ID)) {
-        return false;
-      }
-      else {
-        uniqueID.push(item.listing_ID);
-        return true;
-      }
-    });
-
-    searchResults = searchResults.concat(listingsWithTags);
   }
+
+  try {
+    if (tags && keywords) {
+      var searchResults = await listingDB.findAll({
+        where: {
+          [Op.or]: keywordList
+        },
+        include: [
+          {
+            model: tagDB,
+            where: {
+              tag: { [Op.in]: tagsList }
+            }
+          }
+        ]
+      });
+    } else if (tags && !keywords) {
+      var searchResults = await listingDB.findAll({
+        include: [
+          {
+            model: tagDB,
+            where: {
+              tag: { [Op.in]: tagsList }
+            }
+          }
+        ]
+      })
+    } else if (!tags && keywords) {
+      var searchResults = await listingDB.findAll({
+        where: {
+          [Op.or]: keywordList
+        }
+      });
+    }
+  }
+  catch (err) {
+    console.error(err);
+    return res.status(500).send("server error while retrieving listings")
+  }
+
+  if (searchResults.length == 0)
+    return res.status(204).send();
 
   try {
     var finalResults = await Promise.all(await searchResults.map(async item => {
@@ -336,10 +320,8 @@ exports.getSearchResults = async (req, res) => {
     return res.status(500).send("errored collating final results")
   }
 
-  if (searchResults.length == 0)
-    res.status(204);
-  else
-    res.status(200).send(finalResults);
+  console.log("HERE!");
+  res.status(200).send(finalResults);
 }
 
 exports.getOwnListings = async (req, res) => {
@@ -360,8 +342,8 @@ exports.getOwnListings = async (req, res) => {
     return res.status(500).send("server error finding user listings")
   }
 
-  if (!ownListings)
-    return res.status(204);
+  if (ownListings.length == 0)
+    return res.status(204).send();
 
   console.log(ownListings);
 
