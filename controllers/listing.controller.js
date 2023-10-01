@@ -21,11 +21,23 @@ exports.createListing = async (req, res) => {
     return res.status(400).send("missing listing component");
   }
 
-  // Get user instance from decoded jwt
-  let dbUser = await db.user.findByPk(req.user.user_ID);
+  try {
+    // Get user instance from decoded jwt
+    var dbUser = await db.user.findByPk(req.user.user_ID);
+  }
+  catch (err) {
+    console.error(err);
+    return res.status(500).send("server error finding user")
+  }
 
-  // Get/add address
-  let dbAddress = await getAddress(req.body.address);
+  try {
+    // Get/add address
+    var dbAddress = await getAddress(req.body.address);
+  }
+  catch (err) {
+    console.error(err);
+    return res.status(500).send("server error getting address")
+  }
 
   if (dbAddress === 1)
     return res.status(400).send("address could not be found");
@@ -33,10 +45,9 @@ exports.createListing = async (req, res) => {
   if (dbAddress === 2)
     return res.status(502).send("bad google gateway");
 
-  let dbListing;
   try {
     // Create the listing
-    dbListing = await db.listing.create(({
+    var dbListing = await db.listing.create(({
       title: req.body.title,
       stock_num: req.body.stock_num,
       pickup_instructions: req.body.pickup_instructions,
