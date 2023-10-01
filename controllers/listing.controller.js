@@ -409,15 +409,21 @@ exports.deleteListing = async (req, res) => {
     await listing.destroy();
     res.status(200).send(listing);
   } catch (error) {
-    console.log(error);
-    res.status(500).send("Server error performing delete request.");
+    console.error(error);
+    return res.status(500).send("server error deleting listing");
   }
 }
 
 exports.updateListing = async (req, res) => {
   // Find listing
   var listingID = req.params.id;
-  var listing = await listingDB.findByPk(listingID);
+  try {
+    var listing = await listingDB.findByPk(listingID);
+  }
+  catch (err) {
+    console.error(err);
+    return res.status(500).send("server error finding listing")
+  }
 
   // If no listing, return missing
   if (!listing)
@@ -430,29 +436,48 @@ exports.updateListing = async (req, res) => {
   if (req.body.pickup_instructions) listing.pickup_instructions = req.body.pickup_instructions;
   if (req.body.should_contact) listing.should_contact = req.body.should_contact;
 
-  // Set new tags
-  if (req.body.tags) {
-    // Remove tags first
-    await listing.removeTags();
+  try {
+    // Set new tags
+    if (req.body.tags) {
+      // Remove tags first
+      await listing.removeTags();
 
-    // Add the tags
-    if (addTags(req.body.tags, listing) === 1)
-      return res.status(500).send("could not add tags")
+      // Add the tags
+      if (addTags(req.body.tags, listing) === 1)
+        return res.status(500).send("could not add tags")
+    }
+  }
+  catch (err) {
+    console.error(err);
+    return res.status(500).send("server error setting tags")
   }
 
-  if (req.body.address) {
-    let dbAddress = getAddress(req.body.address); // Get/add address
+  try {
+    if (req.body.address) {
+      var dbAddress = getAddress(req.body.address); // Get/add address
 
-    if (dbAddress === 1)
-      return res.status(400).send("address could not be found");
+      if (dbAddress === 1)
+        return res.status(400).send("address could not be found");
 
-    if (dbAddress === 2)
-      return res.status(502).send("bad google gateway");
+      if (dbAddress === 2)
+        return res.status(502).send("bad google gateway");
 
-    await listing.setAddress(dbAddress);
+      await listing.setAddress(dbAddress);
+    }
+  }
+  catch (err) {
+    console.error(err);
+    return res.status(500).send("server error updating address")
   }
 
-  await listing.save();
+  try {
+    await listing.save();
+  }
+  catch (err) {
+    console.error(err);
+    return res.status(500).send("server error while saving listing")
+  }
+
   res.status(204).send(listing);
 }
 
