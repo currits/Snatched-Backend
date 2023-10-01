@@ -136,7 +136,7 @@ exports.getMany = async (req, res) => {
     }));
 
     if (listingResults.length == 0)
-      return res.status(404).send("No listings found near those coordinates.");
+      return res.status(204);
     else {
       listingResults = listingResults.flat()
       res.status(200).send(listingResults); console.log("end reached");
@@ -191,7 +191,7 @@ exports.getOne = async (req, res) => {
       res.status(200).send(responseObject);
     }
     else {
-      res.status(404).send("No listings found.");
+      res.status(204);
     }
   } catch (error) {
     res.status(500).send("Error retrieving listing data from server.");
@@ -212,7 +212,7 @@ exports.getSearchResults = async (req, res) => {
     var tags = req.query.tags;
     //if no search terms
     if ((keywords == null) && (tags == null))
-      res.status(500).send("Must be searching by at least one tag or keyword.")
+      res.status(400).send("Must be searching by at least one tag or keyword.")
     else {
       //otherwise
       var tagsList = [];
@@ -287,7 +287,7 @@ exports.getSearchResults = async (req, res) => {
         return result;
       }));
       if (searchResults.length == 0)
-        res.status(500).send("No results found.");
+        res.status(204);
       else
         res.status(200).send(finalResults);
     }
@@ -311,13 +311,13 @@ exports.getOwnListings = async (req, res) => {
     );
 
     if (!ownListings)
-      return res.status(404).send("No listings for current user found.");
+      return res.status(204);
 
     console.log(ownListings);
     var finalResults = await Promise.all(await ownListings.map(async x => {
       var result = x.toJSON();
       var tags = await x.getTags();
-      if (tags){
+      if (tags) {
         var tagString = "";
         tags.forEach(z => tagString += "," + z.tag);
         tagString = tagString.slice(1);
