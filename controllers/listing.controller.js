@@ -1,8 +1,6 @@
 require('dotenv').config();
-const Sequelize = require('sequelize');
 const { Op } = require('sequelize');
 const db = require('../models');
-const e = require('express');
 const listingDB = db.listing;
 const addressDB = db.address;
 const tagDB = db.tag;
@@ -335,20 +333,28 @@ exports.getSearchResults = async (req, res) => {
 
 exports.getOwnListings = async (req, res) => {
   console.log("ownListing inside 0");
-  if (req.user.user_ID) {
-    const id = req.user.user_ID;
-    console.log("ownListing inside 1", id);
+  const id = req.user.user_ID;
+  console.log("ownListing inside 1", id);
+
+  try {
     var ownListings = await db.listing.findAll({
       where: {
         userUserID: id
       }
     }
     );
+  }
+  catch (err) {
+    console.error(err);
+    return res.status(500).send("server error finding user listings")
+  }
 
-    if (!ownListings)
-      return res.status(204);
+  if (!ownListings)
+    return res.status(204);
 
-    console.log(ownListings);
+  console.log(ownListings);
+
+  try {
     var finalResults = await Promise.all(await ownListings.map(async x => {
       var result = x.toJSON();
       var tags = await x.getTags();
@@ -376,12 +382,14 @@ exports.getOwnListings = async (req, res) => {
       }
       return result;
     }));
-    console.log("listing own inside last")
-    res.status(200).send(finalResults);
   }
-  else
-    res.status(500).send("Error retrieving user's listing")
+  catch (err) {
+    console.error(err);
+    return res.status(500).send("errored collating final results")
+  }
 
+  console.log("listing own inside last")
+  res.status(200).send(finalResults);
 }
 
 // Controller for Deleting a listing
