@@ -426,7 +426,12 @@ exports.updateListing = async (req, res) => {
   // Set new changes if found  
   if (req.body.title) listing.title = req.body.title;
   if (req.body.description) listing.description = req.body.description;
-  if (req.body.stock_num) listing.stock_num = req.body.stock_num;
+  if (req.body.stock_num) {
+    if (req.body.stock_num == "-")
+      listing.stock_num = null;
+    else
+    listing.stock_num = req.body.stock_num;
+  }
   if (req.body.pickup_instructions) listing.pickup_instructions = req.body.pickup_instructions;
   if (req.body.should_contact) listing.should_contact = req.body.should_contact;
 
