@@ -357,15 +357,14 @@ exports.deleteListing = async (req, res) => {
     var listingID = req.params.id;
     var listing = await listingDB.findByPk(listingID);
 
+    if (!listing)
+      return res.status(404).send("The requested listing was not found. It may have already been deleted.");
+
     if (listing.userUserID != req.user.user_ID)
       return res.status(403).send("you may only delete your own listings")
 
-    if (listing != null) {
-      await listing.destroy();
-      res.status(200).send(listing);
-    }
-    else
-      res.status(404).send("The requested listing was not found. It may have already been deleted.");
+    await listing.destroy();
+    res.status(200).send(listing);
   } catch (error) {
     console.log(error);
     res.status(500).send("Server error performing delete request.");
