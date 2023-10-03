@@ -14,3 +14,14 @@ exports.listingLogger = createLogger({
         })
     ]
 });
+
+exports.errorLogger = createLogger({
+    level: "error",
+    format: combine(timestamp(), cformat),
+    transports: [
+        new transports.File({
+            filename: "logs/error.log"
+        }),
+        new transports.Console()
+    ]
+})

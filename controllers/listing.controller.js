@@ -7,7 +7,7 @@ const addressDB = db.address;
 const tagDB = db.tag;
 const fetch = require('node-fetch');
 const { getAddressObject } = require('../utils/addressParser.js');
-const { listingLogger } = require('../utils/logger.js');
+const { listingLogger, errorLogger } = require('../utils/logger.js');
 
 /*
     Creates a listing given a correctly formatted address and listing information
@@ -28,7 +28,7 @@ exports.createListing = async (req, res) => {
     var dbUser = await db.user.findByPk(req.user.user_ID);
   }
   catch (err) {
-    console.error(err);
+    errorLogger.error("Create listing: " + err);
     return res.status(500).send("server error finding user")
   }
 
@@ -37,7 +37,7 @@ exports.createListing = async (req, res) => {
     var dbAddress = await getAddress(req.body.address);
   }
   catch (err) {
-    console.error(err);
+    errorLogger.error("Create listing: " + err);
     return res.status(500).send("server error getting address")
   }
 
@@ -59,7 +59,7 @@ exports.createListing = async (req, res) => {
 
   }
   catch (err) {
-    console.error(err);
+    errorLogger.error("Create listing: " + err);
     return res.status(500).send("could not create listing");
   }
 
@@ -79,7 +79,7 @@ exports.createListing = async (req, res) => {
     await dbAddress.addListing(dbListing);
   }
   catch (err) {
-    console.error(err);
+    errorLogger.error("Create listing: " + err);
     return res.status(500).send("could not associate models")
   }
 
@@ -124,7 +124,7 @@ exports.getMany = async (req, res) => {
     });
   }
   catch (err) {
-    console.error(err);
+    errorLogger.error("Get many: " + err);
     return res.status(500).send("server error finding addresses")
   }
 
@@ -156,7 +156,7 @@ exports.getMany = async (req, res) => {
     listingResults = listingResults.filter(x => x != null);
   }
   catch (err) {
-    console.error(err);
+    errorLogger.error("Get many: " + err);
     return res.status(500).send("server error getting listings")
   }
 
@@ -181,8 +181,8 @@ exports.getOne = async (req, res) => {
     var listing = await listingDB.findByPk(listingID);
   }
   catch (err) {
-    console.error(err);
-    return res.status(500).send("server error retrieving listing")
+    errorLogger.error("Get one: " + err);
+    return res.status(500).send("server error retrieving listing");
   }
   if (!listing)
     return res.status(204).send();; // No listing found
@@ -194,8 +194,8 @@ exports.getOne = async (req, res) => {
     var responseObject = listing.toJSON();
   }
   catch (err) {
-    console.error(err);
-    return res.status(500).send("server error while getting listing relations")
+    errorLogger.error("Get one: " + err);
+    return res.status(500).send("server error while getting listing relations");
   }
 
   if (tags != null) {
@@ -291,7 +291,7 @@ exports.getSearchResults = async (req, res) => {
     }
   }
   catch (err) {
-    console.error(err);
+    errorLogger.error("Get one: " + err);
     return res.status(500).send("server error while retrieving listings")
   }
 
@@ -319,11 +319,10 @@ exports.getSearchResults = async (req, res) => {
     }));
   }
   catch (err) {
-    console.error(err);
+    errorLogger.error("Get one: " + err);
     return res.status(500).send("errored collating final results")
   }
 
-  console.log("HERE!");
   res.status(200).send(finalResults);
 }
 
@@ -341,7 +340,7 @@ exports.getOwnListings = async (req, res) => {
     );
   }
   catch (err) {
-    console.error(err);
+    errorLogger.error("Get own: " + err);
     return res.status(500).send("server error finding user listings")
   }
 
@@ -376,7 +375,7 @@ exports.getOwnListings = async (req, res) => {
     }));
   }
   catch (err) {
-    console.error(err);
+    errorLogger.error("Get own: " + err);
     return res.status(500).send("errored collating final results")
   }
 
@@ -404,7 +403,7 @@ exports.deleteListing = async (req, res) => {
 
     res.status(200).send(listing);
   } catch (error) {
-    console.error(error);
+    errorLogger.error("Delete listing: " + err);
     return res.status(500).send("server error deleting listing");
   }
 }
@@ -416,7 +415,7 @@ exports.updateListing = async (req, res) => {
     var listing = await listingDB.findByPk(listingID);
   }
   catch (err) {
-    console.error(err);
+    errorLogger.error("Update listing: " + err);
     return res.status(500).send("server error finding listing")
   }
 
@@ -450,7 +449,7 @@ exports.updateListing = async (req, res) => {
     }
   }
   catch (err) {
-    console.error(err);
+    errorLogger.error("Update listing: " + err);
     return res.status(500).send("server error setting tags")
   }
 
@@ -468,7 +467,7 @@ exports.updateListing = async (req, res) => {
     }
   }
   catch (err) {
-    console.error(err);
+    errorLogger.error("Update listing: " + err);
     return res.status(500).send("server error updating address")
   }
 
@@ -476,7 +475,7 @@ exports.updateListing = async (req, res) => {
     await listing.save();
   }
   catch (err) {
-    console.error(err);
+    errorLogger.error("Update listing: " + err);
     return res.status(500).send("server error while saving listing")
   }
 
@@ -505,7 +504,7 @@ async function addTags(tags, listing) {
     });
   }
   catch (err) {
-    console.error(err);
+    errorLogger.error("Add tags: " + err);
     return 1;
   }
 }
@@ -521,7 +520,7 @@ async function getAddress(address) {
     data = await fetch(URL);
   }
   catch (err) {
-    console.error(err);
+    errorLogger.error("Get address: " + err);
     return 2;
   }
 
