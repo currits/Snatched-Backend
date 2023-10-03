@@ -24,4 +24,15 @@ exports.errorLogger = createLogger({
         }),
         new transports.Console()
     ]
-})
+});
+
+exports.userLogger = createLogger({
+    level: "verbose",
+    format: combine(timestamp(), cformat),
+    transports: [
+        new transports.File({
+            filename: "logs/user.log"
+        }),
+        new transports.Console()
+    ]
+});

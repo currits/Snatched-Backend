@@ -4,6 +4,8 @@ const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 const db = require('../models');
 
+const { errorLogger, userLogger } = require('../utils/logger.js');
+
 // User Login
 const login = (req, res) => {
     if (!req.body.password) {
@@ -26,10 +28,11 @@ const login = (req, res) => {
             } else {
                 bcrypt.compare(req.body.password, dbUser.pwd, (err, same) => {
                     if (same) { // Password match
-                        const token = jwt.sign({ user_ID: dbUser.user_ID }, process.env.SECRET, { expiresIn: '336h' }); // 2 weeks, NOT SECURE AT ALL
+                        const token = jwt.sign({ user_ID: dbUser.user_ID }, process.env.SECRET, { expiresIn: '336h' }); // 2 weeks, NOT SECURE AT ALL (just for testing phase)
+                        userLogger.verbose("User " + req.body.email + " logged in from IP: " + req.ip);
                         res.status(200).json({ "token": token });
                     } else if (err) { // Error
-                        console.log(err);
+                        errorLogger.error("Login: " + err);
                         res.status(502).send("errored while checking password");
                     } else { // Password mismatch
                         res.status(401).send("invalid credentials");
@@ -38,7 +41,7 @@ const login = (req, res) => {
             };
         })
         .catch(err => {
-            console.log('error', err);
+            errorLogger.error("Login: " + err);
         });
 };
 
@@ -67,6 +70,7 @@ const signup = (req, res) => {
                 // Hash the password
                 bcrypt.hash(req.body.password, 10, (err, pwdHash) => {
                     if (err) {
+                        errorLogger.error("Signup: " + err);
                         return res.status(500).send("password hash error");
                     }
 
@@ -76,10 +80,11 @@ const signup = (req, res) => {
                         pwd: pwdHash
                     }))
                         .then(() => {
+                            userLogger.verbose("User " + req.body.email + " signed up from IP: " + req.ip);
                             res.status(201).send("user signed up");
                         })
                         .catch(err => {
-                            console.log(err);
+                            errorLogger.error("Signup: " + err);
                             res.status(502).send("error creating user");
                         });
                 });
