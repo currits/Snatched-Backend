@@ -65,8 +65,11 @@ exports.createListing = async (req, res) => {
 
   // Add tags if provided
   if (req.body.tags) {
-    if (addTags(req.body.tags, dbListing) === 1)
-      return res.status(500).send("could not add tags")
+    if (addTags(req.body.tags, dbListing) === 1) {
+      dbListing.destroy();
+      errorLogger.error("Create listing: " + err);
+      return res.status(500).send("could not add tags");
+    }
   }
 
   try {
@@ -80,6 +83,7 @@ exports.createListing = async (req, res) => {
   }
   catch (err) {
     errorLogger.error("Create listing: " + err);
+    dbListing.destroy();
     return res.status(500).send("could not associate models")
   }
 
