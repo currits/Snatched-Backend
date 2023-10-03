@@ -7,6 +7,7 @@ const addressDB = db.address;
 const tagDB = db.tag;
 const fetch = require('node-fetch');
 const { getAddressObject } = require('../utils/addressParser.js');
+const { listingLogger } = require('../utils/logger.js');
 
 /*
     Creates a listing given a correctly formatted address and listing information
@@ -81,6 +82,9 @@ exports.createListing = async (req, res) => {
     console.error(err);
     return res.status(500).send("could not associate models")
   }
+
+  listingLogger.verbose("Listing Created:" + JSON.stringify(dbListing, null, 2));
+
   // Return created listings ID
   res.status(201).json({ listing_ID: dbListing.listing_ID });
 }
@@ -195,7 +199,7 @@ exports.getOne = async (req, res) => {
   }
 
   if (tags != null) {
-    tags = tags.map(z => {return z.toJSON().tag});
+    tags = tags.map(z => { return z.toJSON().tag });
     responseObject["tags"] = tags;
   }
 
@@ -349,7 +353,7 @@ exports.getOwnListings = async (req, res) => {
       var result = x.toJSON();
       var tags = await x.getTags();
       if (tags) {
-        tags = tags.map(z => {return z.toJSON().tag});
+        tags = tags.map(z => { return z.toJSON().tag });
         result["tags"] = tags;
       }
       var address = await x.getAddress();
@@ -395,6 +399,9 @@ exports.deleteListing = async (req, res) => {
       return res.status(403).send("you may only delete your own listings")
 
     await listing.destroy();
+
+    listingLogger.verbose("Listing Deleted: " + JSON.stringify(listing, null, 2));
+
     res.status(200).send(listing);
   } catch (error) {
     console.error(error);
@@ -413,6 +420,8 @@ exports.updateListing = async (req, res) => {
     return res.status(500).send("server error finding listing")
   }
 
+  var oldListing = JSON.stringify(listing, null, 2);
+
   // If no listing, return missing
   if (!listing)
     return res.status(404).send("The specified listing was not found.");
@@ -424,7 +433,7 @@ exports.updateListing = async (req, res) => {
     if (req.body.stock_num == "-")
       listing.stock_num = null;
     else
-    listing.stock_num = req.body.stock_num;
+      listing.stock_num = req.body.stock_num;
   }
   if (req.body.pickup_instructions) listing.pickup_instructions = req.body.pickup_instructions;
   if (req.body.should_contact) listing.should_contact = req.body.should_contact;
@@ -470,6 +479,8 @@ exports.updateListing = async (req, res) => {
     console.error(err);
     return res.status(500).send("server error while saving listing")
   }
+
+  listingLogger.verbose("Listing updated from: " + oldListing + " to: " + JSON.stringify(listing, null, 2));
 
   res.status(204).send(listing);
 }
