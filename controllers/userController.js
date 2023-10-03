@@ -1,5 +1,6 @@
 require('dotenv').config();
 const db = require('../models');
+const { errorLogger } = require('../utils/logger.js');
 
 async function getUser(req, res) {
     const id = req.params.id ? req.params.id : req.user.user_ID;
@@ -8,7 +9,7 @@ async function getUser(req, res) {
         var dbUser = await db.user.findByPk(id);
     }
     catch (err) {
-        console.error(err);
+        errorLogger.error("Get user: " + err);
         return res.status(500).send("error finding user");
     }
 
@@ -46,7 +47,7 @@ async function editUser(req, res) {
         res.status(204).send("Success updating user.");
     }
     catch (err) {
-        console.error(err);
+        errorLogger.error("Edit user: " + err);
         return res.status(500).send("error updating user");
     }
 }
