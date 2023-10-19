@@ -20,7 +20,7 @@ module.exports = function (sequelize, DataTypes) {
       allowNull: true
     },
     username: {
-      type: DataTypes.STRING(24),
+      type: DataTypes.STRING(80),
       allowNull: true
     }
   }, {
