@@ -93,23 +93,26 @@ exports.createListing = async (req, res) => {
   res.status(201).json({ listing_ID: dbListing.listing_ID });
 }
 
-// Controller to handle retrieving multiple listings from the database
-// Needs GET query (as ?key=value) params:
-//    lat: latitude of a center point of a square to search within
-//    lon: longitude of a center point of a square to search within
-// Returns JSON array of listings with; listing_ID,title, desc, stock num, pickup_instructions, and the lat and lon for each (for displaying on map)
+/**
+ * Controller to handle retrieving multiple listings from the database
+ * Needs GET query (as ?key=value) params: lat=latitude of a center point of a square to search within, lon=longitude of a center point of a square to search within
+ * @param {*} req Request body
+ * @param {*} res Response object
+ * @returns JSON array of listings with; listing_ID,title, desc, stock num, pickup_instructions, and the lat and lon for each
+ */
 exports.getMany = async (req, res) => {
-  //this needs to be expanded to changed to send
-  //  -only listing IDs and title, leave individual (ie marker taps) to findByPk method
   var latlon = { lat: parseFloat(req.query.lat), lon: parseFloat(req.query.lon) };
-  //code for calculating circle distances would go here, centre point coords stored in req.body.lat and req.body.lon
-  //ideally results in assoc array with fields pos1, pos2 to dentote two lat/lon points (bottom left and top right) that form a square for us to check within
-  //for now, just search within an inflated square, with sides approx 22km long
+  // Ideal implementation would be to search within a define-able area using Haversine formula
+  // Alas, currently searching within a rectangular polygon. Hoping for the best.
+  // Coords are kept in assoc array with fields pos1, pos2 to dentote two lat/lon points (bottom left and top right) that form a square for us to check within
+  // Searches within an inflated square, with sides hardcoded as approx 22km long
   var pos1 = { lat: latlon.lat - 0.1, lon: latlon.lon - 0.1 };
   var pos2 = { lat: latlon.lat + 0.1, lon: latlon.lon + 0.1 };
 
   try {
-    //this retrieves an array of address instances
+    // This retrieves an array of address instances
+    // We will poll each address instance for associated listings at those addresses
+    // And return the listings
     var addressResults = await addressDB.findAll({
       where: {
         [Op.and]: [
@@ -132,31 +135,33 @@ exports.getMany = async (req, res) => {
     return res.status(500).send("server error finding addresses")
   }
 
-  //first see if we actually retrieved stored addresses
+  // Check if we actually retrieved stored addresses
   if (!addressResults)
     return res.status(204).send();
 
-  //if we did, attempt to retrieve every listing associated with each address
+  // If we did, attempt to retrieve every listing associated with each address
   try {
-    //promise all so we wait until all results are retrieved before sending data
+    // Promise all so we wait until all results are retrieved before sending data
     var listingResults = await Promise.all(await addressResults.map(async x => {
-      //check if listings exist
+      // Check if listings exist
       var listingCount = await x.countListings();
       console.log(listingCount);
       if (listingCount > 0) {
-        //get them
+        // Get them
         var listingsAtAddress = await x.getListings();
-        //and for each of the found listings, create a json with the listings coords and tags attached
+        // And for each of the found listings, create a json with the listing's coords attached
         return (listingsAtAddress.map(y => {
           var processedListing = y.toJSON();
           processedListing["lat"] = x.lat;
           processedListing["lon"] = x.lon;
-          //store the final assembled json object
+          // Store the final assembled json object
           return (processedListing);
         }));
       }
       else return null;
     }));
+    // The results will include null items (where an address exists in the db but no associated listings)
+    // So we need to remove them
     listingResults = listingResults.filter(x => x != null);
   }
   catch (err) {
@@ -164,7 +169,7 @@ exports.getMany = async (req, res) => {
     return res.status(500).send("server error getting listings")
   }
 
-
+  // If nothing found, return nothing found status
   if (listingResults.length == 0)
     return res.status(204).send();
   else {
@@ -173,13 +178,15 @@ exports.getMany = async (req, res) => {
   }
 };
 
-// Controller to retrieve a single listing
-// Address GET request to "/listing/id" where id is the listing ID.
-// Returns a single JSON object containing a listings: title, desc, stock_num, pickup instructions, lat, lon,
-// full address (single string) and tags (as a single string, comma deliminated), and the user ID of the 
-// user (producer) that created the listing (currrently just sends userID, could also include user contact deets but would prefer
-// to not eager load user deets re privacy)
+/**
+ * Controller to retrieve a single listing.
+ * Address GET request to "/listing/id" where id is the listing ID.
+ * @param {*} req Request body
+ * @param {*} res Response object
+ * @returns single JSON object containing all data about a listing
+ */
 exports.getOne = async (req, res) => {
+  // Use the passed listing id to retrieve the listing
   var listingID = req.params.id;
   try {
     var listing = await listingDB.findByPk(listingID);
@@ -191,6 +198,7 @@ exports.getOne = async (req, res) => {
   if (!listing)
     return res.status(204).send();; // No listing found
 
+  // Get all rows from tables associated with this listing
   try {
     var tags = await listing.getTags();
     var address = await listing.getAddress();
@@ -202,11 +210,12 @@ exports.getOne = async (req, res) => {
     return res.status(500).send("server error while getting listing relations");
   }
 
+  // Add the tags to the response
   if (tags != null) {
     tags = tags.map(z => { return z.toJSON().tag });
     responseObject["tags"] = tags;
   }
-
+  // Add everything else
   var addressString = "";
   if (address.unit_no != null)
     addressString += " " + address.unit_no;
@@ -220,47 +229,49 @@ exports.getOne = async (req, res) => {
   responseObject["address"] = addressString;
   responseObject["lat"] = address.lat;
   responseObject["lon"] = address.lon;
-
   responseObject["producerID"] = listingCreator.user_ID;
 
   res.status(200).send(responseObject);
 };
 
-// Controller for retreiving search results from tags and keywords
-// Needs GET query (as ?key=value pairs) params:
-//    tags: comma deliminated list of tags to search
-//    keywords: comma deliminated list of keywords to search
-// Returns
-// All listings that contain the passed tags or keywords, inclusive.
-// Listing data will include ID's, stock, pickup, title, desc, date created, date updated, and addressID
+/**
+ * Controller for retreiving search results from tags and keywords
+ * Needs GET query (as ?key=value pairs) params: tags=comma deliminated list of tags to search, keywords=comma deliminated list of keywords to search
+ * @param {*} req Request body
+ * @param {*} res Response object
+ * @returns All listings that contain the passed tags or keywords, inclusive.
+ */
 exports.getSearchResults = async (req, res) => {
-  //first we'll need to extract keywords
+  // Extract keywords, tags
   var keywords = req.query.keywords;
   var tags = req.query.tags;
-
   if ((!keywords && !tags) || (keywords == '' && tags == '')) // Missing search terms
     return res.status(400).send("Must be searching by at least one tag or keyword.")
 
   var tagsList = [];
   var keywordList = [];
-  //if there are keywords, collect them
+  // If there are keywords, collect them
   if (keywords != null) {
-    //going to assume we have seperated keywords by ','
+    // Assume we have seperated keywords by ','
     keywordList = keywords.split(',');
 
-    //setting up for pattern matching
+    // Build pattern matching wuery string for sequelize
+    // See sequelize docs for how it functions
     keywordList = keywordList.map(item => {
       return ({ [Op.or]: [{ description: { [Op.like]: '%' + item + '%' } }, { title: { [Op.like]: '%' + item + '%' } }] });
     });
   }
 
-  //if there are tags, collect them
+  // If there are tags, collect them
   if (tags != null) {
-    //going to assume we have seperated tags by ','
+    // Assume we have seperated tags by ','
     tagsList = tags.split(',');
   }
 
   try {
+    // Now conduct search
+    // Different paths for keywords&tags, keywords&!tags, !keywords&tags
+    // Uses sequelize findAll() method. Consult seqeulize docs.
     if (tags && keywords) {
       var searchResults = await listingDB.findAll({
         where: {
@@ -299,10 +310,12 @@ exports.getSearchResults = async (req, res) => {
     return res.status(500).send("server error while retrieving listings")
   }
 
+  // If nothing found, return
   if (searchResults.length == 0)
     return res.status(204).send();
 
   try {
+    // Get the addresses of the found listings, format everything into a final reponse array
     var finalResults = await Promise.all(await searchResults.map(async item => {
       var result = item.toJSON();
       var address = await item.getAddress();
@@ -326,15 +339,21 @@ exports.getSearchResults = async (req, res) => {
     errorLogger.error("Get one: " + err);
     return res.status(500).send("errored collating final results")
   }
-
+  // Send it
   res.status(200).send(finalResults);
 }
-
+  /**
+   * Controller for retrieving a user's own listings
+   * Needs GET query to /own endpoint, uses auth token to resolve who the user is
+   * Returns all the user's own listings, if they have any.
+   * @param {*} req Request body
+   * @param {*} res Response object
+   * @returns List of user's own listings
+   */
 exports.getOwnListings = async (req, res) => {
-  console.log("ownListing inside 0");
+  // Get the user id from params
   const id = req.user.user_ID;
-  console.log("ownListing inside 1", id);
-
+  // Retrieve the listings from db
   try {
     var ownListings = await db.listing.findAll({
       where: {
@@ -347,10 +366,11 @@ exports.getOwnListings = async (req, res) => {
     errorLogger.error("Get own: " + err);
     return res.status(500).send("server error finding user listings")
   }
-
+  // If none, return
   if (ownListings.length == 0)
     return res.status(204).send();
 
+  // Else, also collect tags and address of each listing.
   try {
     var finalResults = await Promise.all(await ownListings.map(async x => {
       var result = x.toJSON();
@@ -387,24 +407,29 @@ exports.getOwnListings = async (req, res) => {
   res.status(200).send(finalResults);
 }
 
-// Controller for Deleting a listing
-// Needs DELETE request in the same form as getOne; address to listing/id where id is the listing.listing_id to delete
-// Returns the listing anyway.
+/**
+ * Controller for Deleting a listing. Desctuctive, idempotent.
+ * Needs DELETE request in the same form as getOne; address to listing/id where id is the listing.listing_id to delete
+ * @param {*} req Request body
+ * @param {*} res Response object
+ * @returns The deleted listing
+ */
 exports.deleteListing = async (req, res) => {
   try {
+    // Get listing id from params, then get the listing in the db
     var listingID = req.params.id;
     var listing = await listingDB.findByPk(listingID);
-
+    // If none found, return
     if (!listing)
       return res.status(404).send("The requested listing was not found. It may have already been deleted.");
-
+    // If trying to delete another user's, return
     if (listing.userUserID != req.user.user_ID)
       return res.status(403).send("you may only delete your own listings")
-
+    // Otherwise, use sequelize destroy() method.
     await listing.destroy();
-
+    // Log it
     listingLogger.verbose("Listing Deleted: " + JSON.stringify(listing, null, 2));
-
+    // Send it to user.
     res.status(200).send(listing);
   } catch (error) {
     errorLogger.error("Delete listing: " + err);
@@ -412,6 +437,13 @@ exports.deleteListing = async (req, res) => {
   }
 }
 
+/**
+ * Controller for updating a listing. Idempotent.
+ * Needs PUT request in the same form as getOne, "/listing/id" where id is the listing ID.
+ * @param {*} req Request body
+ * @param {*} res Response object
+ * @returns The updated listing
+ */
 exports.updateListing = async (req, res) => {
   // Find listing
   var listingID = req.params.id;
