@@ -9,8 +9,11 @@ const fetch = require('node-fetch');
 const { getAddressObject } = require('../utils/addressParser.js');
 const { listingLogger, errorLogger } = require('../utils/logger.js');
 
-/*
-    Creates a listing given a correctly formatted address and listing information
+/**
+  Creates a listing given a correctly formatted address and listing information
+  @param {*} req Request body
+  @param {*} res Response object
+  @returns The listing id for the lsiting created
 */
 exports.createListing = async (req, res) => {
   // Check for address in body
@@ -342,14 +345,14 @@ exports.getSearchResults = async (req, res) => {
   // Send it
   res.status(200).send(finalResults);
 }
-  /**
-   * Controller for retrieving a user's own listings
-   * Needs GET query to /own endpoint, uses auth token to resolve who the user is
-   * Returns all the user's own listings, if they have any.
-   * @param {*} req Request body
-   * @param {*} res Response object
-   * @returns List of user's own listings
-   */
+/**
+ * Controller for retrieving a user's own listings
+ * Needs GET query to /own endpoint, uses auth token to resolve who the user is
+ * Returns all the user's own listings, if they have any.
+ * @param {*} req Request body
+ * @param {*} res Response object
+ * @returns List of user's own listings
+ */
 exports.getOwnListings = async (req, res) => {
   // Get the user id from params
   const id = req.user.user_ID;

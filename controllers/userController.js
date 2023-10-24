@@ -2,6 +2,12 @@ require('dotenv').config();
 const db = require('../models');
 const { errorLogger } = require('../utils/logger.js');
 
+/**
+ * Gets a users information given their ID
+ * @param {} req The request body
+ * @param {*} res The response body
+ * @returns The specified users ID, email, phone and username in JSON format
+ */
 async function getUser(req, res) {
     const id = req.params.id ? req.params.id : req.user.user_ID;
 
@@ -24,6 +30,12 @@ async function getUser(req, res) {
         res.status(404).send("could not find user");
 }
 
+/**
+ * Edits a users information depending on information specified
+ * @param {*} req The request body
+ * @param {*} res The response body
+ * @returns 204 response on success
+ */
 async function editUser(req, res) {
     try {
         let dbUser = await db.user.findOne({
