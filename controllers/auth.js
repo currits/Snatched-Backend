@@ -6,7 +6,12 @@ const db = require('../models');
 
 const { errorLogger, userLogger } = require('../utils/logger.js');
 
-// User Login
+/**
+ * User login, handles authorisation checking and generating a token for user
+ * @param {*} req The request body
+ * @param {*} res The response body
+ * @returns On success, the JSON web token to be used for futher auth
+ */
 const login = (req, res) => {
     if (!req.body.password) {
         return res.status(400).send("password not provided");
@@ -28,6 +33,8 @@ const login = (req, res) => {
             } else {
                 bcrypt.compare(req.body.password, dbUser.pwd, (err, same) => {
                     if (same) { // Password match
+                        // There is currently no implementation of token refreshing, so we made tokens long just for testing purposes
+                        // Futher development MUST include implementation for refreshing expired tokens and MUST reduce the expire time as this is not secure
                         const token = jwt.sign({ user_ID: dbUser.user_ID }, process.env.SECRET, { expiresIn: '336h' }); // 2 weeks, NOT SECURE AT ALL (just for testing phase)
                         userLogger.verbose("User " + req.body.email + " logged in from IP: " + req.ip);
                         res.status(200).json({ "token": token });
@@ -45,7 +52,12 @@ const login = (req, res) => {
         });
 };
 
-// User signup
+/**
+ * Signs a user up
+ * @param {*} req The request body
+ * @param {*} res The response body
+ * @returns 201 code if signup is successful
+ */
 const signup = (req, res) => {
     if (!req.body.password) {
         return res.status(400).send("password not provided");
